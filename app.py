@@ -113,6 +113,7 @@ if "usuario" not in st.session_state:
 df = cargar_datos()
 
 if df is not None:
+    df.columns = df.columns.str.strip() 
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     df["Monto"] = pd.to_numeric(df["Monto"], errors="coerce")
     df["Mes"] = df["Fecha"].dt.month
