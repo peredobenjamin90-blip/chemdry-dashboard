@@ -54,7 +54,10 @@ def get_gspread_client():
         "https://www.googleapis.com/auth/spreadsheets.readonly",
         "https://www.googleapis.com/auth/drive.readonly"
     ]
-    creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+    creds = Credentials.from_service_account_info(
+        dict(st.secrets["google_credentials"]),
+        scopes=scopes
+    )
     return gspread.authorize(creds)
 
 @st.cache_data(ttl=300)
