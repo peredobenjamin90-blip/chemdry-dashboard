@@ -120,11 +120,19 @@ df = cargar_datos()
 
 if df is not None and not df.empty:
     df.columns = df.columns.str.strip()
-    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce", dayfirst=True)
+    df["Monto"] = (
+    df["Monto"]
+    .astype(str)
+    .str.replace("$", "", regex=False)
+    .str.replace(",", "", regex=False)
+    .str.strip()
+)
+
     df["Monto"] = pd.to_numeric(df["Monto"], errors="coerce")
     df["Mes"] = df["Fecha"].dt.month
     años_disponibles = sorted(df["Año"].unique())
-    años_sin_2026 = [a for a in años_disponibles if a != 2026]
+    años_sin_2026 = años_disponibles
 
     # ── SIDEBAR ──
     with st.sidebar:
