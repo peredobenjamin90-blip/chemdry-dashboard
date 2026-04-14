@@ -249,7 +249,26 @@ if df is not None and not df.empty:
     elif pagina == "Clientes":
         st.title("Origen de Clientes")
         año_origen = st.selectbox("Año:", años_sin_2026)
-        df_o = df[df["Año"] == año_origen]
+        df_o = df[df["Año"] == año_origen].copy()
+
+# 🔥 LIMPIEZA DE DATOS
+        df_o["Origen"] = (
+            df_o["Origen"]
+            .astype(str)
+            .str.strip()
+            .replace("", "Sin especificar")
+            .replace("nan", "Sin especificar")
+)
+
+# 🔥 NORMALIZAR NOMBRES (opcional pero recomendado)
+        df_o["Origen"] = df_o["Origen"].replace({
+    "Int": "Internet",
+    "Rep": "Repetición",
+    "Rec": "Recomendación",
+    "Face": "Facebook",
+    "Amigos": "Amigo"
+})
+
         origen = df_o["Origen"].value_counts().reset_index()
         origen.columns = ["Canal", "Clientes"]
         st.bar_chart(origen.set_index("Canal"))
