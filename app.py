@@ -249,14 +249,18 @@ if df is not None and not df.empty:
     elif pagina == "Clientes":
         st.title("Origen de Clientes")
         año_origen = st.selectbox("Año:", años_sin_2026)
+
         df_o = df[df["Año"] == año_origen].copy()
+
+    # 🔥 LIMPIEZA DE DATOS
         df_o["Origen"] = (
             df_o["Origen"]
             .astype(str)
             .str.strip()
             .str.lower()
-)
+        )
 
+    # 🔥 NORMALIZAR NOMBRES
         df_o["Origen"] = df_o["Origen"].replace({
             "int": "Internet",
             "internet": "Internet",
@@ -271,10 +275,16 @@ if df is not None and not df.empty:
             "club": "Club",
             "primo": "Primo",
             "maristas": "Maristas"
-})
+        })
 
+    # 🔥 VALORES VACÍOS
         df_o["Origen"] = df_o["Origen"].replace(["", "nan"], "Sin especificar")
-        
+
+        origen = df_o["Origen"].value_counts().reset_index()
+        origen.columns = ["Canal", "Clientes"]
+
+        st.bar_chart(origen.set_index("Canal"))
+        st.dataframe(origen, use_container_width=True)
 
     # ── SERVICIOS ──
     elif pagina == "Servicios":
