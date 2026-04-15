@@ -62,36 +62,50 @@ def get_gspread_client():
     )
     return gspread.authorize(creds)
 
+import time
+
 @st.cache_data(ttl=300)
 def cargar_datos():
     client = get_gspread_client()
     dfs = []
-    for año, sheet_id in SHEET_IDS.items():
-        try:
-            sh = client.open_by_key(sheet_id)
-            worksheet = sh.get_worksheet(0)
-            data = worksheet.get_all_records()
-            df = pd.DataFrame(data)
 
-            if df.empty:
-                continue
-            df["Año"] = año
-            dfs.append(df)
-        except Exception as e:
-            st.error(f"Error cargando {año}: {e}")
+    for año, sheet_id in SHEET_IDS.items():
+        for intento in range(3):  # 🔥 retry automático
+            try:
+                sh = client.open_by_key(sheet_id)
+                worksheet = sh.get_worksheet(0)
+                data = worksheet.get_all_records()
+                df = pd.DataFrame(data)
+
+                if df.empty:
+                    break
+
+                df["Año"] = año
+                dfs.append(df)
+
+                time.sleep(1)  # 🔥 evita saturar Google
+                break
+
+            except Exception as e:
+                if intento < 2:
+                    time.sleep(2)  # 🔥 espera antes de reintentar
+                else:
+                    st.error(f"Error cargando {año}: {e}")
+
     if not dfs:
         return pd.DataFrame()
+
     return pd.concat(dfs, ignore_index=True)
 
 
-# 🔥 NUEVA FUNCIÓN (AGREGAR CLIENTES)
+# 🔥 FUNCIÓN AGREGAR CLIENTES (igual pero mejorada leve)
 def agregar_a_sheets(data):
     client = get_gspread_client()
     sheet_id = SHEET_IDS[data["Año"].iloc[0]]
     sh = client.open_by_key(sheet_id)
     worksheet = sh.get_worksheet(0)
 
-    # 🔥 generar folio único (timestamp)
+    # 🔥 folio único
     folio = str(int(datetime.now().timestamp()))
 
     worksheet.append_row([
@@ -165,7 +179,7 @@ if df is not None and not df.empty:
         st.markdown(f"<h3 style='color:white'>{st.session_state['nombre']}</h3>", unsafe_allow_html=True)
         st.markdown("---")
 
-        paginas = ["Resumen", "Ventas", "Clientes", "Servicios", "Follow Up", "Comentarios", "Cotizaciones"]
+        paginas = ["Resumen", "Ventas", "Clientes", "Servicios", "Follow Up", "Agenda", "Comentarios", "Cotizaciones"]
 
         if "pagina" not in st.session_state:
             st.session_state["pagina"] = "Resumen"
