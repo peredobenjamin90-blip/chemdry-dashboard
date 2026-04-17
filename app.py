@@ -449,7 +449,7 @@ if df is not None and not df.empty:
                 
                 st.markdown(f"[💬 Contactar a {row['Nombre']} (${row['Total_Gastado']:,.0f})]({url})")
                 # 🔍 BUSCADOR
-                cliente_buscar = st.text_input("Buscar cliente")
+                cliente_buscar = st.text_input("Buscar cliente", key="buscador_historial")
 
                 if cliente_buscar:
                     historial = historial[
