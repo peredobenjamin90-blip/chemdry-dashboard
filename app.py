@@ -473,17 +473,39 @@ if df is not None and not df.empty:
         # 🔥 ACCIÓN DIRECTA (WhatsApp)
         st.markdown("### 💬 Contacto rápido")
 
-        for i, row in perdidos.head(10).iterrows():  # solo top 10 para no saturar
-            tel = str(row["Tel"]).replace("-", "").replace(" ", "")
-            
-            if tel:
-                tel = "52" + tel
-                mensaje = f"Hola {row['Nombre']}, hace tiempo que no realizamos un servicio contigo. Tenemos disponibilidad esta semana, ¿te gustaría agendar?"
-                url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
-                
-                st.markdown(f"[💬 Contactar a {row['Nombre']} (${row['Total_Gastado']:,.0f})]({url})")
-                
+        if not perdidos.empty:
 
+            # 🔥 SELECTOR DE CLIENTE
+            cliente_sel = st.selectbox(
+                "Selecciona cliente",
+                perdidos["Nombre"],
+                key="select_contacto"
+                )
+
+            cliente_data = perdidos[perdidos["Nombre"] == cliente_sel].iloc[0]
+
+                # 🔥 LIMPIAR TEL
+            tel = str(cliente_data["Tel"]).replace("-", "").replace(" ", "")
+            if tel:
+                    tel = "52" + tel
+
+                # 🔥 MENSAJE EDITABLE
+            mensaje = st.text_area(
+                "Mensaje",
+                value=f"Hola {cliente_sel}, hace tiempo que no realizamos un servicio contigo. Tenemos disponibilidad esta semana, ¿te gustaría agendar?",
+                key="mensaje_contacto"
+            )
+
+                # 🔥 GENERAR LINK
+            if tel:
+                url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
+                    
+                st.markdown(f"[💬 Abrir WhatsApp]({url})")
+            else:
+                st.warning("Este cliente no tiene teléfono válido")
+
+        else:
+            st.info("No hay clientes en este filtro")
         # ─────────────────────────────
         # ➕ AGREGAR CLIENTE
         # ─────────────────────────────
