@@ -344,6 +344,47 @@ if df is not None and not df.empty:
 
         historial = historial.sort_values(by="Total_Gastado", ascending=False)
 
+        # PERFIL DEL CLIENTE A DETALLE
+        st.markdown("### 👤 Perfil del cliente")
+
+        clientes_lista = historial["Nombre"].dropna().unique().tolist()
+
+        cliente_sel = st.selectbox("Selecciona un cliente", clientes_lista)
+
+        if cliente_sel:
+            df_cliente = df[df["Nombre"] == cliente_sel].copy()
+
+            df_cliente["Fecha"] = pd.to_datetime(df_cliente["Fecha"], errors="coerce")
+            df_cliente["Monto"] = pd.to_numeric(df_cliente["Monto"], errors="coerce")
+
+            df_cliente = df_cliente.sort_values(by="Fecha", ascending=False)
+
+    # 🔥 MÉTRICAS
+            total = df_cliente["Monto"].sum()
+            visitas = len(df_cliente)
+            ultima = df_cliente["Fecha"].max()
+            promedio = df_cliente["Monto"].mean()
+
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total gastado", f"${total:,.0f}")
+            col2.metric("Servicios", visitas)
+            col3.metric("Última visita", ultima.strftime("%d/%m/%Y") if pd.notnull(ultima) else "-")
+            col4.metric("Ticket promedio", f"${promedio:,.0f}")
+
+            st.markdown("### 📋 Historial completo")
+
+            mostrar = df_cliente[[
+                "Fecha",
+                "Servicio",
+                "Monto",
+                "Origen",
+                "Comentarios con llamada posterior a venta"
+            ]].copy()
+
+            mostrar.columns = ["Fecha", "Servicio", "Monto", "Origen", "Comentarios"]
+
+            st.dataframe(mostrar, use_container_width=True)
+
         # 🔍 BUSCADOR
         cliente_buscar = st.text_input("Buscar cliente")
 
