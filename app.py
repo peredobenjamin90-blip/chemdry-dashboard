@@ -384,16 +384,79 @@ if df is not None and not df.empty:
             mostrar.columns = ["Fecha", "Servicio", "Monto", "Origen", "Comentarios"]
 
             st.dataframe(mostrar, use_container_width=True)
+        # ─────────────────────────────
+# 🔴 CLIENTES PERDIDOS (PRO)
+# ─────────────────────────────
+        st.markdown("## 🔴 Oportunidades de recuperación")
 
-        # 🔍 BUSCADOR
-        cliente_buscar = st.text_input("Buscar cliente")
+        df_lost = df.copy()
+        df_lost["Fecha"] = pd.to_datetime(df_lost["Fecha"], errors="coerce")
+        df_lost["Monto"] = pd.to_numeric(df_lost["Monto"], errors="coerce")
 
-        if cliente_buscar:
-            historial = historial[
-                historial["Nombre"].str.contains(cliente_buscar, case=False, na=False)
-            ]
+        hoy = datetime.now()
 
-        st.dataframe(historial, use_container_width=True)
+        # Última visita + valor total
+        ultimo = df_lost.groupby("Nombre").agg(
+            Ultima_Visita=("Fecha", "max"),
+            Total_Gastado=("Monto", "sum"),
+            Tel=("Tel", "last")
+        ).reset_index()
+
+        # Calcular meses sin servicio
+        ultimo["Meses_sin_servicio"] = ((hoy - ultimo["Ultima_Visita"]).dt.days / 30).round(1)
+
+        # 🔥 FILTROS DINÁMICOS (PRO)
+        col1, col2 = st.columns(2)
+
+        with col1:
+            meses_min = st.slider("Meses sin servicio", 3, 24, 6)
+
+        with col2:
+            monto_min = st.number_input("Monto mínimo ($)", value=1500)
+
+        # Aplicar filtros
+        perdidos = ultimo[
+            (ultimo["Meses_sin_servicio"] >= meses_min) &
+            (ultimo["Total_Gastado"] >= monto_min)
+        ]
+
+        perdidos = perdidos.sort_values(by="Total_Gastado", ascending=False)
+
+        # 🔥 MÉTRICAS CLAVE
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric("Clientes recuperables", len(perdidos))
+        col2.metric("Dinero en riesgo", f"${perdidos['Total_Gastado'].sum():,.0f}")
+        col3.metric("Meses promedio sin servicio", f"{perdidos['Meses_sin_servicio'].mean():.1f}" if not perdidos.empty else "0")
+
+        st.markdown("### 📋 Lista priorizada")
+
+        st.dataframe(
+            perdidos[["Nombre", "Tel", "Total_Gastado", "Meses_sin_servicio"]],
+            use_container_width=True
+        )
+
+        # 🔥 ACCIÓN DIRECTA (WhatsApp)
+        st.markdown("### 💬 Contacto rápido")
+
+        for i, row in perdidos.head(10).iterrows():  # solo top 10 para no saturar
+            tel = str(row["Tel"]).replace("-", "").replace(" ", "")
+            
+            if tel:
+                tel = "52" + tel
+                mensaje = f"Hola {row['Nombre']}, hace tiempo que no realizamos un servicio contigo. Tenemos disponibilidad esta semana, ¿te gustaría agendar?"
+                url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
+                
+                st.markdown(f"[💬 Contactar a {row['Nombre']} (${row['Total_Gastado']:,.0f})]({url})")
+                # 🔍 BUSCADOR
+                cliente_buscar = st.text_input("Buscar cliente")
+
+                if cliente_buscar:
+                    historial = historial[
+                        historial["Nombre"].str.contains(cliente_buscar, case=False, na=False)
+                    ]
+
+                st.dataframe(historial, use_container_width=True)
 
         # ─────────────────────────────
         # ➕ AGREGAR CLIENTE
