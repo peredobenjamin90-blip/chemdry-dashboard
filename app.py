@@ -61,7 +61,7 @@ def cargar_datos(sheet_ids):
     dfs = []
 
     for año, sheet_id in sheet_ids.items():
-        for intento in range(3):  # 🔥 retry automático
+        for intento in range(3):
             try:
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
@@ -148,7 +148,7 @@ if "usuario" not in st.session_state:
     st.stop()
 
 # ── CARGAR DATOS ──
-df = cargar_datos()
+df = cargar_datos(st.session_state["SHEET_IDS"])
 
 if df is not None and not df.empty:
     df.columns = df.columns.str.strip()
