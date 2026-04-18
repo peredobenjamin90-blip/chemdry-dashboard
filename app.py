@@ -753,303 +753,335 @@ Quedamos atentos 😊"""
 
         st.link_button("Enviar mensaje por WhatsApp", whatsapp_url)
     # AGENDA
-    elif pagina == "Agenda":
-        st.title("📅 Agenda de Servicios")
+elif pagina == "Agenda":
+    st.title("📅 Agenda de Servicios")
 
-        df_a = df.copy()
-        df_a["Fecha"] = pd.to_datetime(df_a["Fecha"], errors="coerce")
-        df_a["Monto"] = pd.to_numeric(df_a["Monto"], errors="coerce")
+    df_a = df.copy()
+    df_a["Fecha"] = pd.to_datetime(df_a["Fecha"], errors="coerce")
+    df_a["Monto"] = pd.to_numeric(df_a["Monto"], errors="coerce")
 
-        # ─────────────────────────────
-        # 💰 INGRESOS POR DÍA
-        # ─────────────────────────────
-        ingresos_dia = df_a.groupby(df_a["Fecha"].dt.date)["Monto"].sum().reset_index()
-        ingresos_dia.columns = ["Fecha", "Ingresos"]
+    # ─────────────────────────────
+    # 💰 INGRESOS POR DÍA
+    # ─────────────────────────────
+    ingresos_dia = df_a.groupby(df_a["Fecha"].dt.date)["Monto"].sum().reset_index()
+    ingresos_dia.columns = ["Fecha", "Ingresos"]
 
-        st.markdown("### 💰 Ingresos por día")
-        st.line_chart(ingresos_dia.set_index("Fecha"))
+    st.markdown("### 💰 Ingresos por día")
+    st.line_chart(ingresos_dia.set_index("Fecha"))
 
-        # ─────────────────────────────
-        # 📅 SELECCIÓN DE FECHA
-        # ─────────────────────────────
-        fecha_sel = st.date_input("Selecciona una fecha", datetime.now(), key="agenda_fecha")
+    # ─────────────────────────────
+    # 📅 SELECCIÓN DE FECHA
+    # ─────────────────────────────
+    fecha_sel = st.date_input(
+        "Selecciona una fecha",
+        datetime.now(),
+        key="agenda_fecha_1"
+    )
 
-        df_dia = df_a[df_a["Fecha"].dt.date == fecha_sel]
+    df_dia = df_a[df_a["Fecha"].dt.date == fecha_sel]
 
-        # ─────────────────────────────
-        # 📊 MÉTRICAS DEL DÍA
-        # ─────────────────────────────
-        total_dia = df_dia["Monto"].sum()
+    # ─────────────────────────────
+    # 📊 MÉTRICAS DEL DÍA
+    # ─────────────────────────────
+    total_dia = df_dia["Monto"].sum()
+
+    col1, col2 = st.columns(2)
+    col1.metric("Servicios ese día", len(df_dia))
+    col2.metric("Ingresos del día", f"${total_dia:,.0f}")
+
+    st.markdown("---")
+
+    # ─────────────────────────────
+    # 📋 SERVICIOS DEL DÍA
+    # ─────────────────────────────
+    if df_dia.empty:
+        st.info("No hay servicios agendados")
+    else:
+        for _, row in df_dia.iterrows():
+            with st.container():
+                st.markdown(f"""
+                **👤 Cliente:** {row.get('Nombre','')}  
+                **📞 Tel:** {row.get('Tel','')}  
+                **📍 Dirección:** {row.get('Dirección','')}  
+                **🧼 Servicio:** {row.get('Servicio','')}  
+                **💰 Monto:** ${row.get('Monto',0):,.0f}
+                """)
+
+                tel = str(row.get("Tel", "")).replace("-", "").replace(" ", "")
+
+                if tel:
+                    tel = "52" + tel
+                    mensaje = f"Hola {row.get('Nombre','')}, confirmamos tu servicio Chem-Dry para hoy."
+
+                    url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
+                    st.markdown(f"[💬 Enviar WhatsApp]({url})")
+                else:
+                    st.warning("Cliente sin teléfono")
+
+                st.markdown("---")
+
+    # ─────────────────────────────
+    # ➕ AGENDAR SERVICIO
+    # ─────────────────────────────
+    st.markdown("### ➕ Agendar nuevo servicio")
+
+    clientes_existentes = df_a["Nombre"].dropna().unique().tolist()
+
+    with st.form("agendar_servicio"):
+
+        cliente_sel = st.selectbox(
+            "Cliente existente (opcional)",
+            [""] + clientes_existentes
+        )
+
+        nombre = st.text_input("Nombre del cliente", value=cliente_sel)
+        telefono = st.text_input("Teléfono")
+        direccion = st.text_input("Dirección")
+        servicio = st.text_input("Servicio")
 
         col1, col2 = st.columns(2)
-        col1.metric("Servicios ese día", len(df_dia))
-        col2.metric("Ingresos del día", f"${total_dia:,.0f}")
 
-        st.markdown("---")
+        with col1:
+            fecha = st.date_input("Fecha", datetime.now())
 
-        # ─────────────────────────────
-        # 📋 SERVICIOS DEL DÍA
-        # ─────────────────────────────
-        if df_dia.empty:
-            st.info("No hay servicios agendados")
-        else:
-            for _, row in df_dia.iterrows():
-                with st.container():
-                    st.markdown(f"""
-                    **👤 Cliente:** {row.get('Nombre','')}  
-                    **📞 Tel:** {row.get('Tel','')}  
-                    **📍 Dirección:** {row.get('Dirección','')}  
-                    **🧼 Servicio:** {row.get('Servicio','')}  
-                    **💰 Monto:** ${row.get('Monto',0):,.0f}
-                    """)
+        with col2:
+            monto = st.number_input("Monto", min_value=0)
 
-                    # 🔥 BOTÓN WHATSAPP
-                    tel = str(row.get("Tel","")).replace("-", "").replace(" ", "")
+        submitted = st.form_submit_button("Agendar")
 
-                    if tel:
-                        tel = "52" + tel
-                        mensaje = f"Hola {row.get('Nombre','')}, confirmamos tu servicio Chem-Dry para hoy."
+        if submitted:
+            try:
+                client = get_gspread_client()
+                sheet_id = SHEET_IDS[fecha.year]
+                sh = client.open_by_key(sheet_id)
+                worksheet = sh.get_worksheet(0)
 
-                        url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
-                        st.markdown(f"[💬 Enviar WhatsApp]({url})")
-                    else:
-                        st.warning("Cliente sin teléfono")
+                folio = str(int(datetime.now().timestamp()))
 
-                    st.markdown("---")
+                nueva_fila = [
+                    folio,
+                    "",
+                    fecha.strftime("%d/%m/%Y"),
+                    nombre,
+                    telefono,
+                    direccion,
+                    "Agenda",
+                    monto,
+                    servicio,
+                    "", "", "", ""
+                ]
 
-        # ─────────────────────────────
-        # ➕ AGENDAR SERVICIO
-        # ─────────────────────────────
-        st.markdown("### ➕ Agendar nuevo servicio")
+                worksheet.append_row(nueva_fila)
 
-        clientes_existentes = df_a["Nombre"].dropna().unique().tolist()
+                st.success("✅ Servicio agendado correctamente")
+                st.cache_data.clear()
+                st.rerun()
 
-        with st.form("agendar_servicio"):
-            cliente_sel = st.selectbox("Cliente existente (opcional)", [""] + clientes_existentes)
+            except Exception as e:
+                st.error(f"Error al agendar: {e}")
 
-            nombre = st.text_input("Nombre del cliente", value=cliente_sel)
-            telefono = st.text_input("Teléfono")
-            direccion = st.text_input("Dirección")
-            servicio = st.text_input("Servicio")
+    st.markdown("---")
 
-            col1, col2 = st.columns(2)
-            with col1:
-                fecha = st.date_input("Fecha", datetime.now())
-            with col2:
-                monto = st.number_input("Monto", min_value=0)
+    # ─────────────────────────────
+    # 📅 VER AGENDA
+    # ─────────────────────────────
+    fecha_sel_2 = st.date_input(
+        "Selecciona una fecha",
+        datetime.now(),
+        key="agenda_fecha_2"
+    )
 
-            submitted = st.form_submit_button("Agendar")
+    df_dia = df_a[df_a["Fecha"].dt.date == fecha_sel_2]
 
-            if submitted:
-                try:
-                    client = get_gspread_client()
-                    sheet_id = SHEET_IDS[fecha.year]
-                    sh = client.open_by_key(sheet_id)
-                    worksheet = sh.get_worksheet(0)
+    st.metric("Servicios ese día", len(df_dia))
 
-                    folio = str(int(datetime.now().timestamp()))
+    if df_dia.empty:
+        st.info("No hay servicios agendados")
+    else:
+        for _, row in df_dia.iterrows():
+            with st.container():
+                st.markdown(f"""
+                **👤 Cliente:** {row.get('Nombre','')}  
+                **📞 Tel:** {row.get('Tel','')}  
+                **📍 Dirección:** {row.get('Dirección','')}  
+                **🧼 Servicio:** {row.get('Servicio','')}  
+                """)
 
-                    nueva_fila = [
-                        folio,
-                        "",
-                        fecha.strftime("%d/%m/%Y"),
-                        nombre,
-                        telefono,
-                        direccion,
-                        "Agenda",
-                        monto,
-                        servicio,
-                        "", "", "", ""
-                    ]
+                tel = str(row.get("Tel", "")).replace("-", "").replace(" ", "")
 
-                    worksheet.append_row(nueva_fila)
+                if tel:
+                    tel = "52" + tel
+                    mensaje = f"Hola {row.get('Nombre','')}, confirmamos tu servicio Chem-Dry para hoy."
 
-                    st.success("✅ Servicio agendado correctamente")
-                    st.cache_data.clear()
-                    st.rerun()
+                    url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
+                    st.markdown(f"[💬 Enviar WhatsApp]({url})")
 
-                except Exception as e:
-                    st.error(f"Error al agendar: {e}")
-
-        st.markdown("---")
-
-        # ─────────────────────────────
-        # 📅 VER AGENDA
-        # ─────────────────────────────
-        fecha_sel = st.date_input("Selecciona una fecha", datetime.now())
-
-        df_dia = df_a[df_a["Fecha"].dt.date == fecha_sel]
-
-        st.metric("Servicios ese día", len(df_dia))
-
-        if df_dia.empty:
-            st.info("No hay servicios agendados")
-        else:
-            for _, row in df_dia.iterrows():
-                with st.container():
-                    st.markdown(f"""
-                    **👤 Cliente:** {row.get('Nombre','')}  
-                    **📞 Tel:** {row.get('Tel','')}  
-                    **📍 Dirección:** {row.get('Dirección','')}  
-                    **🧼 Servicio:** {row.get('Servicio','')}  
-                    """)
-
-                    # 🔥 BOTÓN WHATSAPP
-                    tel = str(row.get("Tel","")).replace("-", "").replace(" ", "")
-                    if tel:
-                        tel = "52" + tel
-
-                        mensaje = f"Hola {row.get('Nombre','')}, confirmamos tu servicio Chem-Dry para hoy."
-                        url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
-
-                        st.markdown(f"[💬 Enviar WhatsApp]({url})")
-
-                    st.markdown("---")
-
-    # ── COMENTARIOS ──
-    elif pagina == "Comentarios":
-        st.title("Comentarios de clientes")
-        año_com = st.selectbox("Año:", años_sin_2026)
-        buscar = st.text_input("Buscar por nombre o comentario:")
-        df_c = df[(df["Año"]==año_com) & (df["Comentarios con llamada posterior a venta"].notna())].copy()
-        df_c = df_c[["Nombre","Fecha","Comentarios con llamada posterior a venta"]]
-        df_c.columns = ["Cliente","Fecha","Comentario"]
-        df_c = df_c[df_c["Comentario"].astype(str).str.strip() != ""]
-        if buscar:
-            df_c = df_c[
-                df_c["Cliente"].str.contains(buscar, case=False, na=False) |
-                df_c["Comentario"].str.contains(buscar, case=False, na=False)
-            ]
-        st.write(f"**{len(df_c)} comentarios**")
-        st.dataframe(df_c, use_container_width=True)
+                st.markdown("---")
 
     # ── COTIZACIONES ──
-    elif pagina == "Cotizaciones":
-        st.title("Cotizador de Servicios")
+elif pagina == "Cotizaciones":
+    st.title("Cotizador de Servicios")
 
-        PAQUETES = ["Healthy", "Premium", "Protección", "Ecológico", "Sencillo"]
-        MINIMO = 950
+    PAQUETES = ["Healthy", "Premium", "Protección", "Ecológico", "Sencillo"]
+    MINIMO = 950
 
-        PRECIOS = {
-            "Alfombra (por m2)": {"Healthy": 127, "Premium": 91, "Protección": 76, "Ecológico": 57, "Sencillo": 49},
-            "Tapete Oriental / Lana": {"Healthy": 413, "Premium": 359, "Protección": 328, "Ecológico": 254, "Sencillo": 235},
-            "Tapete Sintético": {"Healthy": 232, "Premium": 196, "Protección": 167, "Ecológico": 149, "Sencillo": 132},
-            "Tapete Seda o Algodón": {"Healthy": 659, "Premium": 625, "Protección": 587, "Ecológico": 454, "Sencillo": 375},
-            "Mueble - Asiento y Respaldo Fijos": {"Healthy": 526, "Premium": 434, "Protección": 382, "Ecológico": 274, "Sencillo": 202},
-            "Mueble - Solo Asiento o Respaldo": {"Healthy": 583, "Premium": 515, "Protección": 417, "Ecológico": 308, "Sencillo": 245},
-            "Mueble - Asiento + Respaldo Removible": {"Healthy": 649, "Premium": 568, "Protección": 485, "Ecológico": 362, "Sencillo": 289},
-            "Mueble - Chaise Lounge": {"Healthy": 656, "Premium": 559, "Protección": 455, "Ecológico": 369, "Sencillo": 281},
-            "Taburete / Puff": {"Healthy": 306, "Premium": 251, "Protección": 203, "Ecológico": 138, "Sencillo": 99},
-            "Reposet o Recliner": {"Healthy": 691, "Premium": 581, "Protección": 486, "Ecológico": 372, "Sencillo": 308},
-            "Silla de Oficina (tela)": {"Healthy": 220, "Premium": 179, "Protección": 149, "Ecológico": 125, "Sencillo": 116},
-            "Sillón Ejecutivo (tela)": {"Healthy": 304, "Premium": 233, "Protección": 202, "Ecológico": 165, "Sencillo": 161},
-            "Silla Comedor - Solo Asiento o Respaldo (tela)": {"Healthy": 153, "Premium": 123, "Protección": 108, "Ecológico": 87, "Sencillo": 78},
-            "Silla Comedor - Asiento + Respaldo (tela)": {"Healthy": 220, "Premium": 160, "Protección": 136, "Ecológico": 111, "Sencillo": 104},
-            "Mampara (por m2)": {"Healthy": 135, "Premium": 101, "Protección": 83, "Ecológico": 72, "Sencillo": 67},
-            "Auto Pequeño (Tsuru, Ikon, Chevy)": {"Healthy": 2163, "Premium": 1906, "Protección": 1617, "Ecológico": 1370, "Sencillo": 1283},
-            "Auto Mediano (Jetta, Accord, Focus)": {"Healthy": 2312, "Premium": 2163, "Protección": 1854, "Ecológico": 1597, "Sencillo": 1539},
-            "Auto Grande (Lincoln, Cadillac)": {"Healthy": 2575, "Premium": 2266, "Protección": 2009, "Ecológico": 1751, "Sencillo": 1742},
-            "Camioneta (hasta 3 filas)": {"Healthy": 2781, "Premium": 2575, "Protección": 2369, "Ecológico": 2163, "Sencillo": 2228},
-            "Camioneta Pick Up": {"Healthy": 1920, "Premium": 1755, "Protección": 1527, "Ecológico": 1299, "Sencillo": 1452},
-            "Camioneta Pick Up Doble Cabina": {"Healthy": 2313, "Premium": 2093, "Protección": 1813, "Ecológico": 1521, "Sencillo": 1553},
-            "Colchón Cuna / Corral": {"Healthy": 631, "Premium": 529, "Protección": 493, "Ecológico": 368, "Sencillo": 324},
-            "Colchón Individual": {"Healthy": 1177, "Premium": 1065, "Protección": 896, "Ecológico": 734, "Sencillo": 648},
-            "Colchón Matrimonial": {"Healthy": 1464, "Premium": 1179, "Protección": 1115, "Ecológico": 915, "Sencillo": 821},
-            "Colchón Queen Size": {"Healthy": 1563, "Premium": 1381, "Protección": 1239, "Ecológico": 1050, "Sencillo": 974},
-            "Colchón King Size": {"Healthy": 1757, "Premium": 1555, "Protección": 1391, "Ecológico": 1154, "Sencillo": 1026},
-        }
+    PRECIOS = {
+        "Alfombra (por m2)": {"Healthy": 127, "Premium": 91, "Protección": 76, "Ecológico": 57, "Sencillo": 49},
+        "Tapete Oriental / Lana": {"Healthy": 413, "Premium": 359, "Protección": 328, "Ecológico": 254, "Sencillo": 235},
+        "Tapete Sintético": {"Healthy": 232, "Premium": 196, "Protección": 167, "Ecológico": 149, "Sencillo": 132},
+        "Tapete Seda o Algodón": {"Healthy": 659, "Premium": 625, "Protección": 587, "Ecológico": 454, "Sencillo": 375},
+        "Mueble - Asiento y Respaldo Fijos": {"Healthy": 526, "Premium": 434, "Protección": 382, "Ecológico": 274, "Sencillo": 202},
+        "Mueble - Solo Asiento o Respaldo": {"Healthy": 583, "Premium": 515, "Protección": 417, "Ecológico": 308, "Sencillo": 245},
+        "Mueble - Asiento + Respaldo Removible": {"Healthy": 649, "Premium": 568, "Protección": 485, "Ecológico": 362, "Sencillo": 289},
+        "Mueble - Chaise Lounge": {"Healthy": 656, "Premium": 559, "Protección": 455, "Ecológico": 369, "Sencillo": 281},
+        "Taburete / Puff": {"Healthy": 306, "Premium": 251, "Protección": 203, "Ecológico": 138, "Sencillo": 99},
+        "Reposet o Recliner": {"Healthy": 691, "Premium": 581, "Protección": 486, "Ecológico": 372, "Sencillo": 308},
+        "Silla de Oficina (tela)": {"Healthy": 220, "Premium": 179, "Protección": 149, "Ecológico": 125, "Sencillo": 116},
+        "Sillón Ejecutivo (tela)": {"Healthy": 304, "Premium": 233, "Protección": 202, "Ecológico": 165, "Sencillo": 161},
+        "Silla Comedor - Solo Asiento o Respaldo (tela)": {"Healthy": 153, "Premium": 123, "Protección": 108, "Ecológico": 87, "Sencillo": 78},
+        "Silla Comedor - Asiento + Respaldo (tela)": {"Healthy": 220, "Premium": 160, "Protección": 136, "Ecológico": 111, "Sencillo": 104},
+        "Mampara (por m2)": {"Healthy": 135, "Premium": 101, "Protección": 83, "Ecológico": 72, "Sencillo": 67},
+        "Auto Pequeño (Tsuru, Ikon, Chevy)": {"Healthy": 2163, "Premium": 1906, "Protección": 1617, "Ecológico": 1370, "Sencillo": 1283},
+        "Auto Mediano (Jetta, Accord, Focus)": {"Healthy": 2312, "Premium": 2163, "Protección": 1854, "Ecológico": 1597, "Sencillo": 1539},
+        "Auto Grande (Lincoln, Cadillac)": {"Healthy": 2575, "Premium": 2266, "Protección": 2009, "Ecológico": 1751, "Sencillo": 1742},
+        "Camioneta (hasta 3 filas)": {"Healthy": 2781, "Premium": 2575, "Protección": 2369, "Ecológico": 2163, "Sencillo": 2228},
+        "Camioneta Pick Up": {"Healthy": 1920, "Premium": 1755, "Protección": 1527, "Ecológico": 1299, "Sencillo": 1452},
+        "Camioneta Pick Up Doble Cabina": {"Healthy": 2313, "Premium": 2093, "Protección": 1813, "Ecológico": 1521, "Sencillo": 1553},
+        "Colchón Cuna / Corral": {"Healthy": 631, "Premium": 529, "Protección": 493, "Ecológico": 368, "Sencillo": 324},
+        "Colchón Individual": {"Healthy": 1177, "Premium": 1065, "Protección": 896, "Ecológico": 734, "Sencillo": 648},
+        "Colchón Matrimonial": {"Healthy": 1464, "Premium": 1179, "Protección": 1115, "Ecológico": 915, "Sencillo": 821},
+        "Colchón Queen Size": {"Healthy": 1563, "Premium": 1381, "Protección": 1239, "Ecológico": 1050, "Sencillo": 974},
+        "Colchón King Size": {"Healthy": 1757, "Premium": 1555, "Protección": 1391, "Ecológico": 1154, "Sencillo": 1026},
+    }
 
-        SERVICIOS_CON_CANTIDAD = ["Alfombra (por m2)", "Tapete Oriental / Lana", "Tapete Sintético", "Tapete Seda o Algodón", "Mampara (por m2)"]
-        SERVICIOS_CON_PLAZAS = ["Mueble - Asiento y Respaldo Fijos", "Mueble - Solo Asiento o Respaldo", "Mueble - Asiento + Respaldo Removible", "Mueble - Chaise Lounge", "Taburete / Puff", "Reposet o Recliner"]
-        SERVICIOS_CON_SILLAS = ["Silla de Oficina (tela)", "Sillón Ejecutivo (tela)", "Silla Comedor - Solo Asiento o Respaldo (tela)", "Silla Comedor - Asiento + Respaldo (tela)"]
+    SERVICIOS_CON_CANTIDAD = [
+        "Alfombra (por m2)",
+        "Tapete Oriental / Lana",
+        "Tapete Sintético",
+        "Tapete Seda o Algodón",
+        "Mampara (por m2)"
+    ]
 
-        st.markdown("### Agregar servicios a la cotización")
+    SERVICIOS_CON_PLAZAS = [
+        "Mueble - Asiento y Respaldo Fijos",
+        "Mueble - Solo Asiento o Respaldo",
+        "Mueble - Asiento + Respaldo Removible",
+        "Mueble - Chaise Lounge",
+        "Taburete / Puff",
+        "Reposet o Recliner"
+    ]
 
-        if "items_cotizacion" not in st.session_state:
+    SERVICIOS_CON_SILLAS = [
+        "Silla de Oficina (tela)",
+        "Sillón Ejecutivo (tela)",
+        "Silla Comedor - Solo Asiento o Respaldo (tela)",
+        "Silla Comedor - Asiento + Respaldo (tela)"
+    ]
+
+    st.markdown("### Agregar servicios a la cotización")
+
+    if "items_cotizacion" not in st.session_state:
+        st.session_state["items_cotizacion"] = []
+
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        servicio = st.selectbox("Servicio:", list(PRECIOS.keys()))
+
+    with col2:
+        if servicio in SERVICIOS_CON_CANTIDAD:
+            cantidad = st.number_input("m2:", min_value=1, value=1)
+            label_cantidad = "m2"
+        elif servicio in SERVICIOS_CON_PLAZAS:
+            cantidad = st.number_input("Plazas:", min_value=1, value=1)
+            label_cantidad = "plazas"
+        elif servicio in SERVICIOS_CON_SILLAS:
+            cantidad = st.number_input("Sillas:", min_value=1, value=1)
+            label_cantidad = "sillas"
+        else:
+            cantidad = 1
+            label_cantidad = "unidad"
+
+    # ─────────────────────────────
+    # PRECIOS POR PAQUETE
+    # ─────────────────────────────
+    precio_data = {
+        "Paquete": PAQUETES,
+        "Precio": [f"${PRECIOS[servicio][p] * cantidad:,.0f}" for p in PAQUETES]
+    }
+
+    st.dataframe(pd.DataFrame(precio_data), use_container_width=True, hide_index=True)
+
+    if st.button("Agregar a cotización", use_container_width=True):
+        st.session_state["items_cotizacion"].append({
+            "Servicio": servicio,
+            "Cantidad": cantidad,
+            "Label": label_cantidad,
+            "Precios": {p: PRECIOS[servicio][p] * cantidad for p in PAQUETES}
+        })
+
+    # ─────────────────────────────
+    # RESUMEN
+    # ─────────────────────────────
+    if st.session_state["items_cotizacion"]:
+
+        st.markdown("---")
+        st.markdown("### Resumen — todos los paquetes")
+
+        filas = []
+
+        for item in st.session_state["items_cotizacion"]:
+            fila = {
+                "Servicio": f"{item['Servicio']} ({item['Cantidad']} {item['Label']})"
+            }
+
+            for p in PAQUETES:
+                fila[p] = f"${item['Precios'][p]:,.0f}"
+
+            filas.append(fila)
+
+        totales = {"Servicio": "TOTAL"}
+
+        for p in PAQUETES:
+            total_p = sum(i["Precios"][p] for i in st.session_state["items_cotizacion"])
+            total_final = max(total_p, MINIMO)
+            nota = " *" if total_p < MINIMO else ""
+            totales[p] = f"${total_final:,.0f}{nota}"
+
+        filas.append(totales)
+
+        st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
+
+        # ─────────────────────────────
+        # MENSAJE
+        # ─────────────────────────────
+        st.markdown("### Mensaje para cliente")
+
+        nombre_cliente = st.text_input("Nombre del cliente (opcional):")
+
+        lineas = []
+
+        if nombre_cliente:
+            lineas.append(f"Estimado/a {nombre_cliente},\n")
+
+        lineas.append("Le compartimos la cotización de nuestros servicios Chem-Dry:\n")
+
+        for item in st.session_state["items_cotizacion"]:
+            lineas.append(f"• {item['Servicio']} ({item['Cantidad']} {item['Label']})")
+
+        lineas.append("\nPrecios por paquete:\n")
+
+        for p in PAQUETES:
+            total_p = sum(i["Precios"][p] for i in st.session_state["items_cotizacion"])
+            total_final = max(total_p, MINIMO)
+            nota = " (mínimo aplicado)" if total_p < MINIMO else ""
+            lineas.append(f"{p}: ${total_final:,.0f}{nota}")
+
+        lineas.append("\nTodos nuestros paquetes incluyen limpieza profunda Chem-Dry.")
+        lineas.append("¿Le agendamos una visita?")
+
+        st.text_area("Copia este mensaje:", "\n".join(lineas), height=280)
+
+        if st.button("Limpiar cotización", use_container_width=True):
             st.session_state["items_cotizacion"] = []
-
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            servicio = st.selectbox("Servicio:", list(PRECIOS.keys()))
-        with col2:
-            if servicio in SERVICIOS_CON_CANTIDAD:
-                cantidad = st.number_input("m2:", min_value=1, value=1)
-                label_cantidad = "m2"
-            elif servicio in SERVICIOS_CON_PLAZAS:
-                cantidad = st.number_input("Plazas:", min_value=1, value=1)
-                label_cantidad = "plazas"
-            elif servicio in SERVICIOS_CON_SILLAS:
-                cantidad = st.number_input("Sillas:", min_value=1, value=1)
-                label_cantidad = "sillas"
-            else:
-                cantidad = 1
-                label_cantidad = "unidad"
-                st.write("")
-
-        precio_data = {"Paquete": PAQUETES, "Precio": [f"${PRECIOS[servicio][p] * cantidad:,.0f}" for p in PAQUETES]}
-        st.dataframe(pd.DataFrame(precio_data), use_container_width=True, hide_index=True)
-
-        if st.button("Agregar a cotización", use_container_width=True):
-            st.session_state["items_cotizacion"].append({
-                "Servicio": servicio,
-                "Cantidad": cantidad,
-                "Label": label_cantidad,
-                "Precios": {p: PRECIOS[servicio][p] * cantidad for p in PAQUETES}
-            })
-
-        if st.session_state["items_cotizacion"]:
-            st.markdown("---")
-            st.markdown("### Resumen — todos los paquetes")
-
-            filas = []
-            for item in st.session_state["items_cotizacion"]:
-                fila = {"Servicio": f"{item['Servicio']} ({item['Cantidad']} {item['Label']})"}
-                for p in PAQUETES:
-                    fila[p] = f"${item['Precios'][p]:,.0f}"
-                filas.append(fila)
-
-            totales = {"Servicio": "TOTAL"}
-            for p in PAQUETES:
-                total_p = sum(item["Precios"][p] for item in st.session_state["items_cotizacion"])
-                total_p_final = max(total_p, MINIMO)
-                nota = " *" if total_p < MINIMO else ""
-                totales[p] = f"${total_p_final:,.0f}{nota}"
-            filas.append(totales)
-
-            st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
-
-            hay_minimo = any(
-                sum(item["Precios"][p] for item in st.session_state["items_cotizacion"]) < MINIMO
-                for p in PAQUETES
-            )
-            if hay_minimo:
-                st.warning(f"Los paquetes marcados con * aplican mínimo de servicio de ${MINIMO:,.0f} MXN")
-
-            st.markdown("### Mensaje para cliente")
-            nombre_cliente = st.text_input("Nombre del cliente (opcional):")
-
-            lineas = []
-            if nombre_cliente:
-                lineas.append(f"Estimado/a {nombre_cliente},")
-                lineas.append("")
-            lineas.append("Le compartimos la cotización de nuestros servicios Chem-Dry:")
-            lineas.append("")
-            for item in st.session_state["items_cotizacion"]:
-                lineas.append(f"• {item['Servicio']} ({item['Cantidad']} {item['Label']})")
-            lineas.append("")
-            lineas.append("Precios por paquete:")
-            lineas.append("")
-            for p in PAQUETES:
-                total_p = sum(item["Precios"][p] for item in st.session_state["items_cotizacion"])
-                total_p_final = max(total_p, MINIMO)
-                nota = " (mínimo de servicio aplicado)" if total_p < MINIMO else ""
-                lineas.append(f"  {p}: ${total_p_final:,.0f}{nota}")
-            lineas.append("")
-            lineas.append("Todos nuestros paquetes incluyen limpieza profunda con tecnología Chem-Dry.")
-            lineas.append("¿Le agendamos una visita?")
-
-            st.text_area("Copia este mensaje:", "\n".join(lineas), height=280)
-
-            if st.button("Limpiar cotización", use_container_width=True):
-                st.session_state["items_cotizacion"] = []
-                st.rerun()
+            st.rerun()
