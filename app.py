@@ -41,15 +41,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ── GOOGLE SHEETS ──
-SHEET_IDS = {
-    2022: "1L3wzHhc6_sN7h361uqXFI7lKzGobl_vtuHEDVTbCEdc",
-    2023: "1e7B1Hp5zWJ3kLSS6d8CQoESYsaDWyIrFhIGcSRJE_Ag",
-    2024: "1cVfveU9err9N6RI23OOHEABV8m8Rj9wRkO3F27o6TAg",
-    2025: "1IodGW1K7c7GQBa90k6O8YCFOtwt3sA2PDFa7mmOkZ0E",
-    2026: "1mqcHNhQEjEhKYYuY6iDOVpmPDH7br0VJITxdVx7wzls",
-}
-
 @st.cache_resource
 def get_gspread_client():
     scopes = [
@@ -65,11 +56,11 @@ def get_gspread_client():
 import time
 
 @st.cache_data(ttl=300)
-def cargar_datos():
+def cargar_datos(sheet_ids):
     client = get_gspread_client()
     dfs = []
 
-    for año, sheet_id in SHEET_IDS.items():
+    for año, sheet_id in sheet_ids.items():
         for intento in range(3):  # 🔥 retry automático
             try:
                 sh = client.open_by_key(sheet_id)
@@ -83,12 +74,12 @@ def cargar_datos():
                 df["Año"] = año
                 dfs.append(df)
 
-                time.sleep(1)  # 🔥 evita saturar Google
+                time.sleep(1)
                 break
 
             except Exception as e:
                 if intento < 2:
-                    time.sleep(2)  # 🔥 espera antes de reintentar
+                    time.sleep(2)
                 else:
                     st.error(f"Error cargando {año}: {e}")
 
@@ -147,6 +138,7 @@ def login():
             if usuario in USUARIOS and USUARIOS[usuario]["password"] == password:
                 st.session_state["usuario"] = usuario
                 st.session_state["nombre"] = USUARIOS[usuario]["nombre"]
+                st.session_state["SHEET_IDS"] = USUARIOS[usuario]["sheets"]  # 🔥 CLAVE
                 st.rerun()
             else:
                 st.error("Usuario o contraseña incorrectos")
