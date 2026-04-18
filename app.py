@@ -61,6 +61,11 @@ def cargar_datos(sheet_ids):
     dfs = []
 
     for año, sheet_id in sheet_ids.items():
+
+        # 🔥 IGNORA AÑOS SIN SHEET
+        if not sheet_id:
+            continue
+
         for intento in range(3):
             try:
                 sh = client.open_by_key(sheet_id)
@@ -81,7 +86,8 @@ def cargar_datos(sheet_ids):
                 if intento < 2:
                     time.sleep(2)
                 else:
-                    st.error(f"Error cargando {año}: {e}")
+                    # 🔥 NO ROMPE LA APP
+                    st.warning(f"⚠️ Sheet {año} no disponible")
 
     if not dfs:
         return pd.DataFrame()
