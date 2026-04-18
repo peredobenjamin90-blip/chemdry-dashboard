@@ -259,11 +259,14 @@ with st.sidebar:
 
         st.markdown("---")
         st.caption("Datos actualizados cada 5 min")
-        if st.button("Actualizar datos", use_container_width=True):
+
+        if st.button("Actualizar datos", key="sidebar_actualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
+
         st.markdown("---")
-        if st.button("Cerrar sesión", use_container_width=True):
+
+        if st.button("Cerrar sesión", key="sidebar_logout", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
             st.rerun()
