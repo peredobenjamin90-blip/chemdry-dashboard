@@ -214,7 +214,7 @@ with st.sidebar:
     st.markdown(f"<h3 style='color:white'>{st.session_state['nombre']}</h3>", unsafe_allow_html=True)
     st.markdown("---")
 
-    paginas = ["Resumen", "Ventas", "Clientes", "Servicios", "Follow Up", "Agenda", "Comentarios", "Cotizaciones"]
+    paginas = ["Resumen", "Ventas", "Clientes", "Servicios", "Follow Up", "Agenda", "Cotizaciones"]
 
     if "pagina" not in st.session_state:
         st.session_state["pagina"] = "Resumen"
