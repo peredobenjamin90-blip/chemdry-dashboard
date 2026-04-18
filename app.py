@@ -589,7 +589,7 @@ with st.sidebar:
 
         año_destino = st.selectbox(
             "Guardar cliente en el año:",
-            list(SHEET_IDS.keys()),
+            list(st.session_state["SHEET_IDS"].keys()),
             index=len(SHEET_IDS)-1
         )
 
