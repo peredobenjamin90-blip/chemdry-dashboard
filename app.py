@@ -135,8 +135,15 @@ def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("<h1 style='text-align:center; color:#2B5BAA;'>CRM</h1>", unsafe_allow_html=True)
-        st.markdown("<h3 style='text-align:center; color:#2B5BAA;'>Dashboard</h3>", unsafe_allow_html=True)
+        st.markdown(
+            f"<h1 style='text-align:center; color:#2B5BAA;'>{st.session_state.get('sistema','CRM')}</h1>",
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f"<h3 style='text-align:center; color:#2B5BAA;'>{st.session_state.get('empresa','')}</h3>",
+                unsafe_allow_html=True
+        )
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<h4 style='text-align:center; color:#1a3d6e;'>Iniciar sesión</h4>", unsafe_allow_html=True)
         usuario = st.text_input("Usuario", placeholder="Tu usuario")
