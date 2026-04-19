@@ -774,6 +774,10 @@ elif pagina == "Agenda":
     df_a["Fecha"] = pd.to_datetime(df_a["Fecha"], errors="coerce")
     df_a["Monto"] = pd.to_numeric(df_a["Monto"], errors="coerce")
 
+    # 🔥 PLANTILLAS
+    plantillas = USUARIOS[st.session_state["usuario"]].get("plantillas", {})
+    empresa = st.session_state.get("empresa", "")
+
     # ─────────────────────────────
     # 💰 INGRESOS POR DÍA
     # ─────────────────────────────
@@ -825,7 +829,13 @@ elif pagina == "Agenda":
 
                 if tel:
                     tel = "52" + tel
-                    mensaje = f"Hola {row.get('Nombre','')}, confirmamos tu servicio Chem-Dry para hoy."
+
+                    # 🔥 MENSAJE DINÁMICO
+                    mensaje_template = plantillas.get("confirmacion", "Hola {nombre}")
+                    mensaje = mensaje_template.format(
+                        nombre=row.get("Nombre", ""),
+                        empresa=empresa
+                    )
 
                     url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
                     st.markdown(f"[💬 Enviar WhatsApp]({url})")
@@ -925,7 +935,13 @@ elif pagina == "Agenda":
 
                 if tel:
                     tel = "52" + tel
-                    mensaje = f"Hola {row.get('Nombre','')}, confirmamos tu servicio Chem-Dry para hoy."
+
+                    # 🔥 MENSAJE DINÁMICO
+                    mensaje_template = plantillas.get("confirmacion", "Hola {nombre}")
+                    mensaje = mensaje_template.format(
+                        nombre=row.get("Nombre", ""),
+                        empresa=empresa
+                    )
 
                     url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
                     st.markdown(f"[💬 Enviar WhatsApp]({url})")
