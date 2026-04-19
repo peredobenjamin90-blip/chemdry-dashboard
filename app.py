@@ -5,9 +5,9 @@ import gspread
 from google.oauth2.service_account import Credentials
 from config import USUARIOS
 import uuid
-
+NOMBRE_APP = "CRM Dashboard"
 st.set_page_config(
-    page_title="Chem-Dry Dashboard",
+    page_title= NOMBRE_APP,
     page_icon="🧹",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -153,7 +153,8 @@ def login():
         """, unsafe_allow_html=True)
         if st.button("Entrar"):
             if usuario in USUARIOS and USUARIOS[usuario]["password"] == password:
-                st.session_state["usuario"] = usuario
+                st.session_state["empresa"] = USUARIOS[usuario]["empresa"]
+                st.session_state["sistema"] = USUARIOS[usuario]["sistema"]
                 st.session_state["nombre"] = USUARIOS[usuario]["nombre"]
                 st.session_state["SHEET_IDS"] = USUARIOS[usuario]["sheets"]  # 🔥 CLAVE
                 st.rerun()
@@ -246,7 +247,7 @@ pagina = st.session_state["pagina"]
 
 # ── RESUMEN ──
 if pagina == "Resumen":
-    st.title("Dashboard Chem-Dry")
+    st.title(NOMBRE_APP)
     año_resumen = st.selectbox("Año:", años_sin_2026, index=len(años_sin_2026)-1)
     df_r = df[df["Año"] == año_resumen]
 
