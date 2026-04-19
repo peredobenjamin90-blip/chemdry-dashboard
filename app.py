@@ -135,19 +135,23 @@ def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
+
         st.markdown(
-            f"<h1 style='text-align:center; color:#2B5BAA;'>{st.session_state.get('sistema','CRM')}</h1>",
+            "<h1 style='text-align:center; color:#2B5BAA;'>CRM Alonso</h1>",
             unsafe_allow_html=True
         )
 
         st.markdown(
-            f"<h3 style='text-align:center; color:#2B5BAA;'>{st.session_state.get('empresa','')}</h3>",
-                unsafe_allow_html=True
+            "<h3 style='text-align:center; color:#2B5BAA;'>Dashboard</h3>",
+            unsafe_allow_html=True
         )
+
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("<h4 style='text-align:center; color:#1a3d6e;'>Iniciar sesión</h4>", unsafe_allow_html=True)
+
         usuario = st.text_input("Usuario", placeholder="Tu usuario")
         password = st.text_input("Contraseña", type="password", placeholder="Tu contraseña")
+
         st.markdown("""
         <script>
         document.addEventListener("keydown", function(e) {
@@ -158,16 +162,17 @@ def login():
         });
         </script>
         """, unsafe_allow_html=True)
+
         if st.button("Entrar"):
             if usuario in USUARIOS and USUARIOS[usuario]["password"] == password:
-                st.session_state["usuario"] = usuario  # 🔥 FALTABA ESTO
+                st.session_state["usuario"] = usuario
                 st.session_state["empresa"] = USUARIOS[usuario]["empresa"]
                 st.session_state["sistema"] = USUARIOS[usuario]["sistema"]
                 st.session_state["SHEET_IDS"] = USUARIOS[usuario]["sheets"]
                 st.rerun()
             else:
                 st.error("Usuario o contraseña incorrectos")
-            
+
 
 if "usuario" not in st.session_state:
     login()
