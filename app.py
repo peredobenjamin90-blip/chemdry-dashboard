@@ -228,7 +228,7 @@ with st.sidebar:
     st.markdown(f"<h3 style='color:white'>{st.session_state['empresa']}</h3>", unsafe_allow_html=True)
     st.markdown("---")
 
-    paginas = ["Resumen", "Ventas", "Clientes", "Servicios", "Follow Up", "Agenda", "Cotizaciones"]
+    paginas = ["Resumen", "Ventas", "Clientes", "Servicios", "Follow Up", "Agenda", "Cotizaciones", "Chat"]
 
     if "pagina" not in st.session_state:
         st.session_state["pagina"] = "Resumen"
@@ -706,6 +706,76 @@ elif pagina == "Follow Up":
             st.link_button("Enviar mensaje por WhatsApp", whatsapp_url)
         else:
             st.warning("Cliente sin teléfono válido")
+# CHATBOT
+elif pagina == "Chat":
+    st.title("🤖 Asistente del negocio")
+
+    st.markdown("### 💡 Ejemplos de preguntas")
+    st.markdown("""
+    - ¿Cuánto vendí este mes?
+    - ¿Quién es mi mejor cliente?
+    - ¿Qué clientes no han venido en 6 meses?
+    - ¿Cuántos clientes tengo?
+    """)
+
+    pregunta = st.text_input("Haz una pregunta:")
+
+    if pregunta:
+
+        pregunta_lower = pregunta.lower()
+
+        # 💰 Ventas totales
+        if "ventas" in pregunta_lower and "mes" not in pregunta_lower:
+            total = df["Monto"].sum()
+            st.success(f"Ventas totales: ${total:,.0f}")
+
+        # 📅 Ventas este mes
+        elif "este mes" in pregunta_lower:
+            mes_actual = datetime.now().month
+            ventas_mes = df[df["Mes"] == mes_actual]["Monto"].sum()
+            st.success(f"Ventas este mes: ${ventas_mes:,.0f}")
+
+        # 🏆 Mejor cliente
+        elif "mejor cliente" in pregunta_lower:
+            if not df.empty:
+                top = df.groupby("Nombre")["Monto"].sum().idxmax()
+                total_top = df.groupby("Nombre")["Monto"].sum().max()
+                st.success(f"Tu mejor cliente es {top} con ${total_top:,.0f}")
+            else:
+                st.warning("No hay datos disponibles")
+
+        # 👥 Total clientes
+        elif "clientes" in pregunta_lower and "perdidos" not in pregunta_lower:
+            total_clientes = df["Nombre"].nunique()
+            st.success(f"Tienes {total_clientes} clientes únicos")
+
+        # 🔴 Clientes perdidos
+        elif "perdidos" in pregunta_lower or "no han venido" in pregunta_lower:
+
+            df_lost = df.copy()
+            df_lost["Fecha"] = pd.to_datetime(df_lost["Fecha"], errors="coerce")
+            df_lost["Monto"] = pd.to_numeric(df_lost["Monto"], errors="coerce")
+
+            hoy = datetime.now()
+
+            ultimo = df_lost.groupby("Nombre").agg(
+                Ultima_Visita=("Fecha", "max"),
+                Total_Gastado=("Monto", "sum"),
+                Tel=("Tel", "last")
+            ).reset_index()
+
+            ultimo["Meses_sin_servicio"] = ((hoy - ultimo["Ultima_Visita"]).dt.days / 30).round(1)
+
+            perdidos = ultimo[ultimo["Meses_sin_servicio"] >= 6]
+
+            if not perdidos.empty:
+                st.dataframe(perdidos)
+            else:
+                st.success("No hay clientes perdidos 🎉")
+
+        # ❌ No entendido
+        else:
+            st.warning("Aún no entiendo esa pregunta 😅")
     # AGENDA
 elif pagina == "Agenda":
     st.title("📅 Agenda de Servicios")
