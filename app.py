@@ -494,7 +494,8 @@ elif pagina == "Clientes":
     col1, col2, col3 = st.columns(3)
     col1.metric("Clientes recuperables", len(perdidos))
     col2.metric("Dinero en riesgo", f"${perdidos['Total_Gastado'].sum():,.0f}")
-    col3.metric("Meses promedio sin servicio",
+    col3.metric(
+        "Meses promedio sin servicio",
         f"{perdidos['Meses_sin_servicio'].mean():.1f}" if not perdidos.empty else "0"
     )
 
@@ -503,55 +504,52 @@ elif pagina == "Clientes":
         perdidos[["Nombre", "Tel", "Total_Gastado", "Meses_sin_servicio"]],
         use_container_width=True
     )
-# ─────────────────────────────
-# 💣 CONTACTO MASIVO
-# ─────────────────────────────
-st.dataframe(
-    perdidos[["Nombre", "Tel", "Total_Gastado", "Meses_sin_servicio"]],
-    use_container_width=True
-)
 
-st.markdown("## 🚀 Contacto masivo")
+    # 🚀 CONTACTO MASIVO
+    st.markdown("## 🚀 Contacto masivo")
 
-if not perdidos.empty:
+    if not perdidos.empty:
 
-    plantillas = USUARIOS[st.session_state["usuario"]].get("plantillas", {})
-    empresa = st.session_state.get("empresa", "")
+        plantillas = USUARIOS[st.session_state["usuario"]].get("plantillas", {})
+        empresa = st.session_state.get("empresa", "")
 
-    plantilla_sel = st.selectbox(
-        "Selecciona plantilla para todos",
-        list(plantillas.keys()),
-        key="plantilla_masiva"
-    )
+        if plantillas:
+            plantilla_sel = st.selectbox(
+                "Selecciona plantilla para todos",
+                list(plantillas.keys()),
+                key="plantilla_masiva"
+            )
 
-    mensaje_base = plantillas[plantilla_sel]
+            mensaje_base = plantillas[plantilla_sel]
+        else:
+            mensaje_base = "Hola {nombre}, te contactamos de {empresa}"
 
-    if st.button("💬 Generar mensajes para todos"):
+        if st.button("💬 Generar mensajes para todos"):
 
-        mensajes = []
+            mensajes = []
 
-        for _, row in perdidos.iterrows():
-            tel = str(row["Tel"]).replace("-", "").replace(" ", "")
+            for _, row in perdidos.iterrows():
+                tel = str(row["Tel"]).replace("-", "").replace(" ", "")
 
-            if tel:
-                tel = "52" + tel
+                if tel:
+                    tel = "52" + tel
 
-                mensaje = mensaje_base.format(
-                    nombre=row["Nombre"],
-                    empresa=empresa
+                    mensaje = mensaje_base.format(
+                        nombre=row["Nombre"],
+                        empresa=empresa
+                    )
+
+                    url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
+                    mensajes.append(f"{row['Nombre']} → {url}")
+
+            if mensajes:
+                st.text_area(
+                    "Copia y abre estos links:",
+                    "\n\n".join(mensajes),
+                    height=300
                 )
 
-                url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
-
-                mensajes.append(f"{row['Nombre']} → {url}")
-
-        if mensajes:
-            st.text_area(
-                "Copia y abre estos links (uno por uno):",
-                "\n\n".join(mensajes),
-                height=300
-            )
-    # 💬 MENSAJES DINÁMICOS
+    # 💬 CONTACTO INDIVIDUAL
     st.markdown("### 💬 Contacto rápido")
 
     if not perdidos.empty:
@@ -568,7 +566,6 @@ if not perdidos.empty:
         if tel:
             tel = "52" + tel
 
-        # 🔥 PLANTILLAS
         PLANTILLAS_MENSAJES = {
             "Recordatorio": "Hola {nombre}, te contactamos de {empresa}. Hace tiempo no realizas un servicio con nosotros. ¿Te gustaría agendar?",
             "Promoción": "Hola {nombre}, en {empresa} tenemos una promoción especial. ¿Te interesa?",
@@ -576,19 +573,20 @@ if not perdidos.empty:
             "Reactivación": "Hola {nombre}, te extrañamos en {empresa} 😄 ¿Agendamos esta semana?"
         }
 
-        plantilla_sel = st.selectbox("Plantilla", list(PLANTILLAS_MENSAJES.keys()))
-
-        mensaje_base = PLANTILLAS_MENSAJES[plantilla_sel]
-
-        mensaje_generado = mensaje_base.format(
-            nombre=cliente_sel_contacto,
-            empresa=st.session_state.get("empresa", "nuestro negocio")
+        plantilla_sel = st.selectbox(
+            "Plantilla",
+            list(PLANTILLAS_MENSAJES.keys())
         )
 
-        mensaje = st.text_area("Mensaje", value=mensaje_generado)
+        mensaje = PLANTILLAS_MENSAJES[plantilla_sel].format(
+            nombre=cliente_sel_contacto,
+            empresa=st.session_state.get("empresa", "tu negocio")
+        )
+
+        mensaje_edit = st.text_area("Mensaje", value=mensaje)
 
         if tel:
-            url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
+            url = f"https://wa.me/{tel}?text={mensaje_edit.replace(' ', '%20')}"
             st.markdown(f"[💬 Abrir WhatsApp]({url})")
         else:
             st.warning("Este cliente no tiene teléfono válido")
