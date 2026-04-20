@@ -519,14 +519,14 @@ elif pagina == "Clientes":
                 list(plantillas.keys()),
                 key="plantilla_masiva"
             )
-
             mensaje_base = plantillas[plantilla_sel]
         else:
             mensaje_base = "Hola {nombre}, te contactamos de {empresa}"
 
         if st.button("💬 Generar mensajes para todos"):
 
-            mensajes = []
+            cols = st.columns(3)
+            i = 0
 
             for _, row in perdidos.iterrows():
                 tel = str(row["Tel"]).replace("-", "").replace(" ", "")
@@ -540,14 +540,11 @@ elif pagina == "Clientes":
                     )
 
                     url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
-                    mensajes.append(f"{row['Nombre']} → {url}")
 
-            if mensajes:
-                for m in mensajes:
-                    nombre, url = m.split(" → ")
-                    st.link_button(f"💬 {nombre}", url),
-                    height=300
-                
+                    with cols[i % 3]:
+                        st.link_button(f"💬 {row['Nombre']}", url)
+
+                    i += 1
 
     # 💬 CONTACTO INDIVIDUAL
     st.markdown("### 💬 Contacto rápido")
