@@ -300,11 +300,17 @@ def cargar_finanzas(sheet_id):
                 valores.append(num)
         return valores
 
-    meses_entradas = extraer_meses(fila_e)
-    meses_salidas = extraer_meses(fila_s)
+    # 🔥 Tomar el último valor válido (Total Año real)
+    def obtener_total(fila):
+        valores = [limpiar_numero(v) for v in fila if limpiar_numero(v) > 0]
+    
+        if valores:
+            return valores[-1]  # el último número es el total anual
+        return 0
 
-    ingresos = sum(meses_entradas)
-    gastos = sum(meses_salidas)
+    ingresos = obtener_total(fila_e)
+    gastos = obtener_total(fila_s)
+
     utilidad = ingresos - gastos
 
     return ingresos, gastos, utilidad
