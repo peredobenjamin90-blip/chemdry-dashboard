@@ -284,8 +284,8 @@ def cargar_finanzas(sheet_id):
         return None, None, None
 
     # 🔍 Buscar filas clave
-    fila_entradas = df[df[0].astype(str).str.contains("Total Año Ingresos", case=False, na=False)]
-    fila_salidas = df[df[0].astype(str).str.contains("Total Año Gastos", case=False, na=False)]
+    fila_entradas = df[df[0].astype(str).str.contains("Total Entradas", case=False, na=False)]
+    fila_salidas = df[df[0].astype(str).str.contains("Total Salidas", case=False, na=False)]
 
     if fila_entradas.empty or fila_salidas.empty:
         return None, None, None
