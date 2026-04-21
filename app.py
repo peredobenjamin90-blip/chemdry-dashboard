@@ -18,19 +18,20 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #2B5BAA; }
     [data-testid="stSidebar"] * { color: white !important; }
     [data-testid="stMetric"] {
-        background: #f8f9fa;
+        background: transparent !important;
         border-radius: 12px;
         padding: 16px;
         border-left: 4px solid #2B5BAA;
+        border: 1px solid rgba(43, 91, 170, 0.3);
     }
     [data-testid="stMetricValue"] {
         font-size: clamp(14px, 2vw, 28px) !important;
     }
     h1 { color: #2B5BAA; }
-    h2, h3 { color: #1a3d6e; }
+    h2, h3 { color: #4a7fd4; }
     .stButton > button {
         background-color: #2B5BAA;
-        color: white;
+        color: white !important;
         border: none;
         border-radius: 8px;
         padding: 10px 24px;
