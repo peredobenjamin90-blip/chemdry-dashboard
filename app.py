@@ -279,15 +279,10 @@ def cargar_finanzas(url):
         st.error(f"Error descargando CSV: {e}")
         return None, None, None
 
-    def buscar_total(keyword):
-        filas = df[df.astype(str).apply(
-            lambda row: row.str.contains(keyword, case=False, na=False).any(),
-            axis=1
-        )]
-        if filas.empty:
+    def buscar_max_en_fila(fila_idx):
+        if fila_idx >= len(df):
             return 0
-        fila = filas.iloc[0]
-
+        fila = df.iloc[fila_idx]
         valores = []
         for v in fila:
             try:
@@ -297,13 +292,22 @@ def cargar_finanzas(url):
                     valores.append(num)
             except:
                 continue
-
         return max(valores) if valores else 0
 
-    ingresos = buscar_total("Total Entradas")
-    gastos   = buscar_total("Total Salidas")
+    # Detectar estructura por año según keyword en fila 7 u 8
+    fila_ingresos = 7  # default (2025, 2026)
+    fila_gastos = 23
 
+    # Revisar si la fila 7 tiene "Cliente" — si no, usar fila 8
+    fila_7 = df.iloc[7].astype(str).str.contains("Cliente|cliente", na=False).any()
+    if not fila_7:
+        fila_ingresos = 8
+        fila_gastos = 24
+
+    ingresos = buscar_max_en_fila(fila_ingresos)
+    gastos   = buscar_max_en_fila(fila_gastos)
     utilidad = ingresos - gastos
+
     return ingresos, gastos, utilidad
 # ── RESUMEN ──
 if pagina == "Resumen":
