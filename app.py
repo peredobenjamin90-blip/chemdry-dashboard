@@ -283,6 +283,10 @@ def cargar_finanzas(url):
         if fila_idx >= len(df):
             return 0
         fila = df.iloc[fila_idx]
+
+        # DEBUG
+        st.caption(f"Fila {fila_idx} raw: {list(fila)}")
+
         valores = []
         for v in fila:
             try:
@@ -292,17 +296,22 @@ def cargar_finanzas(url):
                     valores.append(num)
             except:
                 continue
+
+        # DEBUG
+        st.caption(f"Fila {fila_idx} valores: {valores}")
+
         return max(valores) if valores else 0
 
-    # Detectar estructura por año según keyword en fila 7 u 8
-    fila_ingresos = 7  # default (2025, 2026)
-    fila_gastos = 23
-
-    # Revisar si la fila 7 tiene "Cliente" — si no, usar fila 8
     fila_7 = df.iloc[7].astype(str).str.contains("Cliente|cliente", na=False).any()
     if not fila_7:
         fila_ingresos = 8
         fila_gastos = 24
+    else:
+        fila_ingresos = 7
+        fila_gastos = 23
+
+    # DEBUG
+    st.caption(f"Usando filas: ingresos={fila_ingresos}, gastos={fila_gastos}")
 
     ingresos = buscar_max_en_fila(fila_ingresos)
     gastos   = buscar_max_en_fila(fila_gastos)
