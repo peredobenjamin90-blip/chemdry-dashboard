@@ -300,10 +300,6 @@ def cargar_finanzas(url):
     ingresos = buscar_total("Total Entradas")
     gastos   = buscar_total("Total Salidas")
 
-    # Debug temporal — borra estas 2 líneas cuando funcione
-    st.caption(f"Ingresos raw: {ingresos} | Gastos raw: {gastos}")
-    st.caption(f"Primeras filas: {df.head(3).to_string()}")
-
     utilidad = ingresos - gastos
     return ingresos, gastos, utilidad
 # ── RESUMEN ──
