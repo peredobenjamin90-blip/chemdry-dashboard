@@ -283,31 +283,36 @@ def cargar_finanzas(sheet_id):
     except:
         return None, None, None
 
-    # 🔍 Buscar filas correctas
-    fila_entradas = df[df[0].astype(str).str.contains("Total Entradas", case=False, na=False)]
-    fila_salidas = df[df[0].astype(str).str.contains("Total Salidas", case=False, na=False)]
+    # 🔍 Buscar columna de "Total Año Ingresos"
+    col_ingresos = None
+    col_gastos = None
 
-    if fila_entradas.empty or fila_salidas.empty:
+    for col in df.columns:
+        if df[col].astype(str).str.contains("Total Año Ingresos", case=False, na=False).any():
+            col_ingresos = col
+
+        if df[col].astype(str).str.contains("Total Año Gastos", case=False, na=False).any():
+            col_gastos = col
+
+    if col_ingresos is None or col_gastos is None:
         return None, None, None
 
-    fila_e = fila_entradas.iloc[0]
-    fila_s = fila_salidas.iloc[0]
+    # 🔥 Extraer TODOS los valores de esa columna (ignorando texto)
+    ingresos_vals = [
+        limpiar_numero(v)
+        for v in df[col_ingresos]
+        if limpiar_numero(v) > 0
+    ]
 
-    # 🔥 FUNCIÓN ROBUSTA (agarra el total real)
-    def obtener_total(fila):
-        valores = []
+    gastos_vals = [
+        limpiar_numero(v)
+        for v in df[col_gastos]
+        if limpiar_numero(v) > 0
+    ]
 
-        for v in fila:
-            num = limpiar_numero(v)
-            if num > 0:
-                valores.append(num)
-
-        if valores:
-            return valores[-1]  # último número válido = Total Año
-        return 0
-
-    ingresos = obtener_total(fila_e)
-    gastos = obtener_total(fila_s)
+    # 🔥 SUMA REAL (esto es lo correcto según tu sheet)
+    ingresos = sum(ingresos_vals)
+    gastos = sum(gastos_vals)
 
     utilidad = ingresos - gastos
 
