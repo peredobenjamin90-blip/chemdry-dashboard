@@ -283,7 +283,7 @@ def cargar_finanzas(sheet_id):
     except:
         return None, None, None
 
-    # Buscar filas clave
+    # 🔍 Buscar filas clave
     fila_entradas = df[df[0].astype(str).str.contains("Total Entradas", case=False, na=False)]
     fila_salidas = df[df[0].astype(str).str.contains("Total Salidas", case=False, na=False)]
 
@@ -293,20 +293,18 @@ def cargar_finanzas(sheet_id):
     fila_e = fila_entradas.iloc[0]
     fila_s = fila_salidas.iloc[0]
 
-    # 🔥 FUNCIÓN CORRECTA (NO usa último valor)
-    def obtener_total(fila):
-        valores = []
-        for v in fila:
-            num = limpiar_numero(v)
-            if num > 0:
-                valores.append(num)
+    # 🔥 COLUMNA "TOTAL AÑO"
+    COL_TOTAL = 13  # Ajuste típico (puede ser 13 o 14 dependiendo del sheet)
 
-        if valores:
-            return max(valores)  # 🔥 AQUÍ ESTÁ EL FIX REAL
-        return 0
+    def safe_get(fila):
+        try:
+            return limpiar_numero(fila[COL_TOTAL])
+        except:
+            return 0
 
-    ingresos = obtener_total(fila_e)
-    gastos = obtener_total(fila_s)
+    ingresos = safe_get(fila_e)
+    gastos = safe_get(fila_s)
+
     utilidad = ingresos - gastos
 
     return ingresos, gastos, utilidad
