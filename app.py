@@ -295,7 +295,7 @@ def cargar_finanzas(url):
                     valores.append(num)
             except:
                 continue
-        return valores[-1] if valores else 0
+        return max(valores) if valores else 0
 
     ingresos = buscar_total("Total Entradas")
     gastos   = buscar_total("Total Salidas")
