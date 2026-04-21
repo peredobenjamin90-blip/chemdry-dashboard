@@ -279,9 +279,11 @@ def cargar_finanzas(url):
         st.error(f"Error descargando CSV: {e}")
         return None, None, None
 
-    # DEBUG — ver cuántas columnas tiene y fila 8 completa
-    st.caption(f"Total columnas: {len(df.columns)}")
-    st.caption(f"Fila 7 completa: {list(enumerate(df.iloc[7]))}")
+    # DEBUG — buscar fila que contenga el total anual
+    for i, row in df.iterrows():
+        fila_str = row.astype(str)
+        if fila_str.str.contains("1,209,481|1209481|Total Año|Total Mes", na=False).any():
+            st.caption(f"Fila {i}: {list(enumerate(row))}")
 
     return None, None, None
 # ── RESUMEN ──
