@@ -417,15 +417,28 @@ elif pagina == "Ventas":
     st.subheader("Comparación mensual")
     años_sel = st.multiselect("Años:", años_sin_2026, default=años_sin_2026[-2:])
     if años_sel:
+        import plotly.express as px
+
         df_f = df[df["Año"].isin(años_sel)]
         pivot = df_f.groupby(["Año","Mes"])["Monto"].sum().reset_index()
         pivot = pivot.pivot(index="Mes", columns="Año", values="Monto").fillna(0)
-        pivot = pivot.sort_index()  # ← ordena 1 al 12
+        pivot = pivot.sort_index()
 
         nombres_meses = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",
                          7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
         pivot.index = pivot.index.map(nombres_meses)
-        st.line_chart(pivot)
+
+        pivot_reset = pivot.reset_index()
+        pivot_reset.columns.name = None
+
+        fig = px.line(
+            pivot_reset,
+            x="Mes",
+            y=[col for col in pivot_reset.columns if col != "Mes"],
+            labels={"value": "Ventas", "variable": "Año"},
+            category_orders={"Mes": ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]}
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("Proyección 2026")
         mes_actual = datetime.now().month
@@ -467,7 +480,7 @@ elif pagina == "Ventas":
                 "Variación": f"{pct:+.1f}%"
             })
         st.dataframe(pd.DataFrame(resumen_meses), use_container_width=True, hide_index=True)
-    # ── CLIENTES ──
+        # CLIENTES
 elif pagina == "Clientes":
     st.title("Origen de Clientes")
 
