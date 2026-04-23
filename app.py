@@ -45,15 +45,14 @@ st.markdown("""
 @st.cache_resource
 def get_gspread_client():
     scopes = [
-        "https://www.googleapis.com/auth/spreadsheets.readonly",
-        "https://www.googleapis.com/auth/drive.readonly"
+        "https://www.googleapis.com/auth/spreadsheets",  # ← quita el .readonly
+        "https://www.googleapis.com/auth/drive"           # ← quita el .readonly
     ]
     creds = Credentials.from_service_account_info(
         dict(st.secrets["google_credentials"]),
         scopes=scopes
     )
     return gspread.authorize(creds)
-
 import time
 
 @st.cache_data(ttl=300)
