@@ -420,9 +420,10 @@ elif pagina == "Ventas":
         df_f = df[df["Año"].isin(años_sel)]
         pivot = df_f.groupby(["Año","Mes"])["Monto"].sum().reset_index()
         pivot = pivot.pivot(index="Mes", columns="Año", values="Monto").fillna(0)
-    
+        pivot = pivot.sort_index()  # ← ordena 1 al 12
+
         nombres_meses = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",
-                     7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
+                         7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
         pivot.index = pivot.index.map(nombres_meses)
         st.line_chart(pivot)
 
@@ -450,8 +451,8 @@ elif pagina == "Ventas":
         st.markdown(f"<p style='color:{color}'>Basado en {meses_con_datos_2026} mes(es) de datos reales de 2026</p>", unsafe_allow_html=True)
 
         st.subheader("Detalle mes a mes — 2026 vs 2025")
-        nombres_meses = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
-                        7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
+        nombres_meses_completos = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
+                                   7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
         resumen_meses = []
         for m in range(1, mes_actual + 1):
             v2025 = df[(df["Año"]==2025) & (df["Mes"]==m)]["Monto"].sum()
@@ -459,7 +460,7 @@ elif pagina == "Ventas":
             diff = v2026 - v2025
             pct = ((diff / v2025) * 100) if v2025 > 0 else 0
             resumen_meses.append({
-                "Mes": nombres_meses[m],
+                "Mes": nombres_meses_completos[m],
                 "2025": f"${v2025:,.0f}",
                 "2026": f"${v2026:,.0f}",
                 "Diferencia": f"${diff:,.0f}",
