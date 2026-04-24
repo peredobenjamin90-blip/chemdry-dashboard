@@ -1054,9 +1054,17 @@ elif pagina == "Agenda":
             try:
                 client = get_gspread_client()
                 sheet_id = st.session_state["SHEET_IDS"][fecha.year]
+        
+        # DEBUG
+                st.caption(f"Sheet ID usado: {sheet_id}")
+                st.caption(f"Año: {fecha.year}")
+        
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
-
+        
+        # DEBUG
+                st.caption(f"Sheet abierto: {sh.title}, hoja: {worksheet.title}")
+        
                 folio = str(int(datetime.now().timestamp()))
                 nueva_fila = [
                     folio, "",
@@ -1066,6 +1074,8 @@ elif pagina == "Agenda":
                     "", "", "", ""
                 ]
                 worksheet.append_row(nueva_fila)
+                st.caption(f"Fila escrita: {nueva_fila}")
+
                 st.success("✅ Servicio agendado correctamente")
                 st.cache_data.clear()
                 st.cache_resource.clear()
@@ -1073,8 +1083,6 @@ elif pagina == "Agenda":
 
             except Exception as e:
                 st.error(f"Error al agendar: {e}")
-
-    st.markdown("---")
 
     # 📅 CALENDARIO
     from streamlit_calendar import calendar
