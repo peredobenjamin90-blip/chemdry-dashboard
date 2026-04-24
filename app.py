@@ -1066,14 +1066,13 @@ elif pagina == "Agenda":
                     "", "", "", ""
                 ]
 
-                # Buscar primera fila vacía real en columna A
+                # Buscar primera fila vacía real
                 col_a = worksheet.col_values(1)
-                primera_vacia = len(col_a) + 1
+                valores_reales = [v for v in col_a if str(v).strip() != ""]
+                primera_vacia = len(valores_reales) + 1
                 worksheet.insert_row(nueva_fila, primera_vacia)
 
                 st.success("✅ Servicio agendado correctamente")
-
-                # Forzar recarga de datos
                 st.cache_data.clear()
                 st.cache_resource.clear()
                 import time as t
@@ -1090,10 +1089,12 @@ elif pagina == "Agenda":
 
     st.markdown("### 📅 Calendario de servicios")
 
-    # Recargar datos frescos para el calendario
+    # Recargar datos frescos
     df_cal_raw = cargar_datos(st.session_state.get("SHEET_IDS", {}))
+    df_cal_raw.columns = df_cal_raw.columns.str.strip()
     df_cal_raw["Fecha"] = pd.to_datetime(df_cal_raw["Fecha"], errors="coerce")
-    df_cal_raw["Monto"] = pd.to_numeric(df_cal_raw["Monto"], errors="coerce")
+    if "Monto" in df_cal_raw.columns:
+        df_cal_raw["Monto"] = pd.to_numeric(df_cal_raw["Monto"], errors="coerce")
     df_cal = df_cal_raw[df_cal_raw["Fecha"].dt.year >= 2021].copy()
     df_cal = df_cal.dropna(subset=["Fecha"])
 
