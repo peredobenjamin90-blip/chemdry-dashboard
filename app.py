@@ -1054,17 +1054,9 @@ elif pagina == "Agenda":
             try:
                 client = get_gspread_client()
                 sheet_id = st.session_state["SHEET_IDS"][fecha.year]
-        
-        # DEBUG
-                st.caption(f"Sheet ID usado: {sheet_id}")
-                st.caption(f"Año: {fecha.year}")
-        
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
-        
-        # DEBUG
-                st.caption(f"Sheet abierto: {sh.title}, hoja: {worksheet.title}")
-        
+
                 folio = str(int(datetime.now().timestamp()))
                 nueva_fila = [
                     folio, "",
@@ -1073,16 +1065,115 @@ elif pagina == "Agenda":
                     "Agenda", monto, servicio,
                     "", "", "", ""
                 ]
-                worksheet.append_row(nueva_fila)
-                st.caption(f"Fila escrita: {nueva_fila}")
+
+                # Buscar primera fila vacía real en columna A
+                col_a = worksheet.col_values(1)
+                primera_vacia = len(col_a) + 1
+                worksheet.insert_row(nueva_fila, primera_vacia)
 
                 st.success("✅ Servicio agendado correctamente")
+
+                # Forzar recarga de datos
                 st.cache_data.clear()
                 st.cache_resource.clear()
+                import time as t
+                t.sleep(1)
                 st.rerun()
 
             except Exception as e:
                 st.error(f"Error al agendar: {e}")
+
+    st.markdown("---")
+
+    # 📅 CALENDARIO
+    from streamlit_calendar import calendar
+
+    st.markdown("### 📅 Calendario de servicios")
+
+    # Recargar datos frescos para el calendario
+    df_cal_raw = cargar_datos(st.session_state.get("SHEET_IDS", {}))
+    df_cal_raw["Fecha"] = pd.to_datetime(df_cal_raw["Fecha"], errors="coerce")
+    df_cal_raw["Monto"] = pd.to_numeric(df_cal_raw["Monto"], errors="coerce")
+    df_cal = df_cal_raw[df_cal_raw["Fecha"].dt.year >= 2021].copy()
+    df_cal = df_cal.dropna(subset=["Fecha"])
+
+    eventos = []
+    for _, row in df_cal.iterrows():
+        eventos.append({
+            "title": f"{row.get('Nombre', '')} — {row.get('Servicio', '')}",
+            "start": row["Fecha"].strftime("%Y-%m-%d"),
+            "end": row["Fecha"].strftime("%Y-%m-%d"),
+            "extendedProps": {
+                "folio": str(row.get("Folio sistema", "")),
+                "año": int(row.get("Año", 0))
+            }
+        })
+
+    opciones_calendario = {
+        "initialView": "dayGridMonth",
+        "locale": "es",
+        "headerToolbar": {
+            "left": "prev,next today",
+            "center": "title",
+            "right": "dayGridMonth,timeGridWeek,listWeek"
+        },
+        "height": 600,
+    }
+
+    resultado = calendar(events=eventos, options=opciones_calendario)
+
+    # 📋 DETALLE AL PICAR EVENTO
+    if resultado and resultado.get("eventClick"):
+        evento_click = resultado["eventClick"]["event"]
+        folio_click = evento_click.get("extendedProps", {}).get("folio")
+        año_click = evento_click.get("extendedProps", {}).get("año")
+
+        if folio_click and año_click:
+            df_evento = df_cal[
+                (df_cal["Folio sistema"].astype(str) == str(folio_click)) &
+                (df_cal["Año"] == año_click)
+            ]
+
+            if not df_evento.empty:
+                row = df_evento.iloc[0]
+
+                st.markdown("---")
+                st.markdown("### 📋 Detalle del servicio")
+                st.markdown(f"""
+                **👤 Cliente:** {row.get('Nombre','')}  
+                **📞 Tel:** {row.get('Tel','')}  
+                **📍 Dirección:** {row.get('Dirección','')}  
+                **🧼 Servicio:** {row.get('Servicio','')}  
+                **💰 Monto:** ${row.get('Monto',0):,.0f}  
+                **💬 Comentarios:** {row.get('Comentarios con llamada posterior a venta','')}
+                """)
+
+                tel_ev = str(row.get("Tel", "")).replace("-", "").replace(" ", "")
+                if tel_ev:
+                    tel_ev = "52" + tel_ev
+                    mensaje_template = plantillas.get("confirmacion", "Hola {nombre}")
+                    mensaje = mensaje_template.format(nombre=row.get("Nombre", ""), empresa=empresa)
+                    url = f"https://wa.me/{tel_ev}?text={mensaje.replace(' ', '%20')}"
+                    st.markdown(f"[💬 Enviar WhatsApp]({url})")
+
+                if st.button("🗑️ Borrar este servicio", key="borrar_evento"):
+                    try:
+                        client = get_gspread_client()
+                        sheet_id = st.session_state["SHEET_IDS"][row["Fecha"].year]
+                        sh = client.open_by_key(sheet_id)
+                        worksheet = sh.get_worksheet(0)
+
+                        celdas = worksheet.findall(str(folio_click))
+                        if celdas:
+                            worksheet.delete_rows(celdas[0].row)
+                            st.success("✅ Servicio eliminado")
+                            st.cache_data.clear()
+                            st.cache_resource.clear()
+                            st.rerun()
+                        else:
+                            st.warning("No se encontró el servicio en el sheet")
+                    except Exception as e:
+                        st.error(f"Error al borrar: {e}")
 
     # 📅 CALENDARIO
     from streamlit_calendar import calendar
