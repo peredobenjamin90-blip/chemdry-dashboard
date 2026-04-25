@@ -1066,14 +1066,15 @@ elif pagina == "Agenda":
                     "", "", "", ""
                 ]
 
-                # Buscar primera fila vacía ignorando timestamps y vacíos
+                # Encontrar índice real del último valor no vacío
                 col_a = worksheet.col_values(1)
                 datos_col_a = col_a[1:]  # quitar header
-                valores_reales = [
-                    v for v in datos_col_a
-                    if str(v).strip() != "" and len(str(v).strip()) <= 6
-                ]
-                primera_vacia = len(valores_reales) + 2
+                ultimo_idx = 0
+                for i, v in enumerate(datos_col_a):
+                    if str(v).strip() != "":
+                        ultimo_idx = i
+                primera_vacia = ultimo_idx + 3  # +1 índice 0, +1 header, +1 siguiente
+
                 worksheet.insert_row(nueva_fila, primera_vacia)
 
                 st.success("✅ Servicio agendado correctamente")
