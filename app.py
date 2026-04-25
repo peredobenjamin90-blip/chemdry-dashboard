@@ -1057,18 +1057,36 @@ elif pagina == "Agenda":
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
 
-        # DEBUG
+                folio = str(int(datetime.now().timestamp()))
+                nueva_fila = [
+                    folio, "",
+                    fecha.strftime("%d/%m/%Y"),
+                    nombre, telefono, direccion,
+                    "Agenda", monto, servicio,
+                    "", "", "", ""
+                ]
+
+                # Buscar primera fila vacía ignorando timestamps y vacíos
                 col_a = worksheet.col_values(1)
-                datos_col_a = col_a[1:]
-                valores_reales = [v for v in datos_col_a if str(v).strip() != ""]
-                st.caption(f"Total col_a: {len(col_a)}")
-                st.caption(f"Valores reales: {len(valores_reales)}")
-                st.caption(f"Primera vacía calculada: {len(valores_reales) + 2}")
-                st.caption(f"Últimos 5 valores reales: {valores_reales[-5:]}")
-                st.stop()  # ← para no escribir nada todavía
+                datos_col_a = col_a[1:]  # quitar header
+                valores_reales = [
+                    v for v in datos_col_a
+                    if str(v).strip() != "" and len(str(v).strip()) <= 6
+                ]
+                primera_vacia = len(valores_reales) + 2
+                worksheet.insert_row(nueva_fila, primera_vacia)
+
+                st.success("✅ Servicio agendado correctamente")
+                st.cache_data.clear()
+                st.cache_resource.clear()
+                import time as t
+                t.sleep(1)
+                st.rerun()
 
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error al agendar: {e}")
+
+    st.markdown("---")
 
     # 📅 CALENDARIO
     from streamlit_calendar import calendar
