@@ -8,9 +8,11 @@ import uuid
 import plotly.express as px
 
 NOMBRE_APP = "CRM Dashboard"
+ICONO_APP = "🧹"
+
 st.set_page_config(
-    page_title= NOMBRE_APP,
-    page_icon="🧹",
+    page_title=NOMBRE_APP,
+    page_icon=ICONO_APP,
     layout="wide",
     initial_sidebar_state="expanded"
 )
