@@ -1050,9 +1050,23 @@ elif pagina == "Agenda":
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
 
-                folio = str(int(datetime.now().timestamp()))
+                # Calcular siguiente folio
+                col_a = worksheet.col_values(1)
+                ultimo_folio = 0
+                for v in col_a[1:]:
+                    try:
+                        num = int(str(v).strip())
+                        if num < 10000:
+                            ultimo_folio = max(ultimo_folio, num)
+                    except:
+                        continue
+
+                siguiente_folio = ultimo_folio + 1
+                folio_interno = f"{siguiente_folio}/{str(fecha.year)[-2:]}"
+
                 nueva_fila = [
-                    folio, "",
+                    siguiente_folio,
+                    folio_interno,
                     fecha.strftime("%d/%m/%Y"),
                     nombre, telefono, direccion,
                     "Agenda", monto, servicio,
@@ -1060,12 +1074,12 @@ elif pagina == "Agenda":
                 ]
 
                 # Buscar primera fila vacía por columna C (Fecha)
-                col_c = worksheet.col_values(3)  # columna C = Fecha
-                datos_col_c = col_c[1:]  # quitar header
+                col_c = worksheet.col_values(3)
+                datos_col_c = col_c[1:]
                 primera_vacia = None
                 for i, v in enumerate(datos_col_c):
                     if str(v).strip() == "":
-                        primera_vacia = i + 2  # +1 índice 0, +1 header
+                        primera_vacia = i + 2
                         break
 
                 if primera_vacia is None:
@@ -1076,8 +1090,9 @@ elif pagina == "Agenda":
                 st.success("✅ Servicio agendado correctamente")
                 st.cache_data.clear()
                 st.cache_resource.clear()
+                st.session_state["agenda_refresh"] = st.session_state.get("agenda_refresh", 0) + 1
                 import time as t
-                t.sleep(1)
+                t.sleep(2)
                 st.rerun()
 
             except Exception as e:
@@ -1090,8 +1105,39 @@ elif pagina == "Agenda":
 
     st.markdown("### 📅 Calendario de servicios")
 
-    # Recargar datos frescos
-    df_cal_raw = cargar_datos(st.session_state.get("SHEET_IDS", {}))
+    # Función sin caché para forzar recarga
+    @st.cache_data(ttl=1, show_spinner=False)
+    def cargar_datos_calendario(sheet_ids, _refresh):
+        client = get_gspread_client()
+        dfs = []
+        columnas_base = [
+            "Fecha", "Nombre", "Tel", "Dirección",
+            "Origen", "Monto", "Servicio",
+            "Comentarios con llamada posterior a venta"
+        ]
+        for año, sheet_id in sheet_ids.items():
+            if not sheet_id:
+                continue
+            try:
+                sh = client.open_by_key(sheet_id)
+                worksheet = sh.get_worksheet(0)
+                data = worksheet.get_all_records()
+                df_tmp = pd.DataFrame(data)
+                if df_tmp.empty:
+                    df_tmp = pd.DataFrame(columns=columnas_base)
+                df_tmp["Año"] = año
+                dfs.append(df_tmp)
+            except:
+                continue
+        if not dfs:
+            return pd.DataFrame(columns=columnas_base + ["Año"])
+        return pd.concat(dfs, ignore_index=True)
+
+    refresh_val = st.session_state.get("agenda_refresh", 0)
+    df_cal_raw = cargar_datos_calendario(
+        tuple(st.session_state.get("SHEET_IDS", {}).items()),
+        refresh_val
+    )
     df_cal_raw.columns = df_cal_raw.columns.str.strip()
     df_cal_raw["Fecha"] = pd.to_datetime(df_cal_raw["Fecha"], errors="coerce")
     if "Monto" in df_cal_raw.columns:
@@ -1171,6 +1217,7 @@ elif pagina == "Agenda":
                             st.success("✅ Servicio eliminado")
                             st.cache_data.clear()
                             st.cache_resource.clear()
+                            st.session_state["agenda_refresh"] = st.session_state.get("agenda_refresh", 0) + 1
                             st.rerun()
                         else:
                             st.warning("No se encontró el servicio en el sheet")
