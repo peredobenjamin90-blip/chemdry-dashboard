@@ -964,7 +964,7 @@ elif pagina == "Agenda":
     st.title("📅 Agenda de Servicios")
 
     df_a = df.copy()
-    df_a["Fecha"] = pd.to_datetime(df_a["Fecha"], errors="coerce")
+    df_a["Fecha"] = pd.to_datetime(df_a["Fecha"], errors="coerce", dayfirst=True)
     df_a["Monto"] = pd.to_numeric(df_a["Monto"], errors="coerce")
 
     plantillas = USUARIOS[st.session_state["usuario"]].get("plantillas", {})
@@ -1050,12 +1050,12 @@ elif pagina == "Agenda":
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
 
-                # Calcular siguiente folio
-                col_a = worksheet.col_values(1)
+                # Calcular siguiente folio desde columna B (Folio interno)
+                col_b = worksheet.col_values(2)
                 ultimo_folio = 0
-                for v in col_a[1:]:
+                for v in col_b[1:]:
                     try:
-                        num = int(str(v).strip())
+                        num = int(str(v).strip().split("/")[0])
                         if num < 10000:
                             ultimo_folio = max(ultimo_folio, num)
                     except:
@@ -1105,7 +1105,6 @@ elif pagina == "Agenda":
 
     st.markdown("### 📅 Calendario de servicios")
 
-    # Función sin caché para datos siempre frescos
     def cargar_datos_calendario(sheet_ids):
         client = get_gspread_client()
         dfs = []
@@ -1136,7 +1135,7 @@ elif pagina == "Agenda":
         df_cal_raw = cargar_datos_calendario(st.session_state.get("SHEET_IDS", {}))
 
     df_cal_raw.columns = df_cal_raw.columns.str.strip()
-    df_cal_raw["Fecha"] = pd.to_datetime(df_cal_raw["Fecha"], errors="coerce")
+    df_cal_raw["Fecha"] = pd.to_datetime(df_cal_raw["Fecha"], errors="coerce", dayfirst=True)
     if "Monto" in df_cal_raw.columns:
         df_cal_raw["Monto"] = pd.to_numeric(df_cal_raw["Monto"], errors="coerce")
     df_cal = df_cal_raw[df_cal_raw["Fecha"].dt.year >= 2021].copy()
