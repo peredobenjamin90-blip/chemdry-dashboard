@@ -963,8 +963,15 @@ elif pagina == "Chat":
 elif pagina == "Agenda":
     st.title("📅 Agenda de Servicios")
 
+    def parsear_fechas(serie):
+        resultado = pd.to_datetime(serie, errors="coerce", format="%m/%d/%Y")
+        mask = resultado.isna()
+        if mask.any():
+            resultado[mask] = pd.to_datetime(serie[mask], errors="coerce", format="%d/%m/%Y")
+        return resultado
+
     df_a = df.copy()
-    df_a["Fecha"] = pd.to_datetime(df_a["Fecha"], errors="coerce", format="mixed", dayfirst=True)
+    df_a["Fecha"] = parsear_fechas(df_a["Fecha"])
     df_a["Monto"] = pd.to_numeric(df_a["Monto"], errors="coerce")
 
     plantillas = USUARIOS[st.session_state["usuario"]].get("plantillas", {})
@@ -1067,7 +1074,7 @@ elif pagina == "Agenda":
                 nueva_fila = [
                     siguiente_folio,
                     folio_interno,
-                    fecha.strftime("%d/%m/%Y"),
+                    fecha.strftime("%m/%d/%Y"),
                     nombre, telefono, direccion,
                     "Agenda", monto, servicio,
                     "", "", "", ""
@@ -1135,7 +1142,7 @@ elif pagina == "Agenda":
         df_cal_raw = cargar_datos_calendario(st.session_state.get("SHEET_IDS", {}))
 
     df_cal_raw.columns = df_cal_raw.columns.str.strip()
-    df_cal_raw["Fecha"] = pd.to_datetime(df_cal_raw["Fecha"], errors="coerce", format="mixed", dayfirst=True)
+    df_cal_raw["Fecha"] = parsear_fechas(df_cal_raw["Fecha"])
     if "Monto" in df_cal_raw.columns:
         df_cal_raw["Monto"] = pd.to_numeric(df_cal_raw["Monto"], errors="coerce")
     df_cal = df_cal_raw[df_cal_raw["Fecha"].dt.year >= 2021].copy()
