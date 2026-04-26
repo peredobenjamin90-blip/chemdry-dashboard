@@ -1105,9 +1105,8 @@ elif pagina == "Agenda":
 
     st.markdown("### 📅 Calendario de servicios")
 
-    # Función sin caché para forzar recarga
-    @st.cache_data(ttl=1, show_spinner=False)
-    def cargar_datos_calendario(sheet_ids, _refresh):
+    # Función sin caché para datos siempre frescos
+    def cargar_datos_calendario(sheet_ids):
         client = get_gspread_client()
         dfs = []
         columnas_base = [
@@ -1133,11 +1132,9 @@ elif pagina == "Agenda":
             return pd.DataFrame(columns=columnas_base + ["Año"])
         return pd.concat(dfs, ignore_index=True)
 
-    refresh_val = st.session_state.get("agenda_refresh", 0)
-    df_cal_raw = cargar_datos_calendario(
-        tuple(st.session_state.get("SHEET_IDS", {}).items()),
-        refresh_val
-    )
+    with st.spinner("Cargando calendario..."):
+        df_cal_raw = cargar_datos_calendario(st.session_state.get("SHEET_IDS", {}))
+
     df_cal_raw.columns = df_cal_raw.columns.str.strip()
     df_cal_raw["Fecha"] = pd.to_datetime(df_cal_raw["Fecha"], errors="coerce")
     if "Monto" in df_cal_raw.columns:
@@ -1217,7 +1214,6 @@ elif pagina == "Agenda":
                             st.success("✅ Servicio eliminado")
                             st.cache_data.clear()
                             st.cache_resource.clear()
-                            st.session_state["agenda_refresh"] = st.session_state.get("agenda_refresh", 0) + 1
                             st.rerun()
                         else:
                             st.warning("No se encontró el servicio en el sheet")
