@@ -700,7 +700,10 @@ elif pagina == "Servicios":
     año_serv = st.selectbox("Año:", años_sin_2026)
     df_s = df[df["Año"] == año_serv].copy()
 
-    # Categorías desde config
+    # Filtrar filas sin servicio real
+    df_s = df_s[df_s["Servicio"].notna()]
+    df_s = df_s[df_s["Servicio"].astype(str).str.strip() != ""]
+
     categorias_config = USUARIOS[st.session_state["usuario"]].get("categorias", {})
 
     def categorizar(servicio):
