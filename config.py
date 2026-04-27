@@ -70,8 +70,25 @@ USUARIOS = {
         "cotizador": {
             "paquetes": ["Healthy", "Premium", "Protección", "Ecológico", "Sencillo"],
             "minimo": 950,
-            "mensaje_intro": "Le compartimos la cotización de nuestros servicios:",
-            "mensaje_cierre": "Todos nuestros paquetes incluyen limpieza profunda.\n¿Le agendamos una visita?",
+            "intro": "Hola muchas gracias.\nEn breve:\nChemDry es una franquicia americana con presencia en todos los continentes, por ende nuestros productos son de la más alta calidad a nivel mundial. No usamos jabones, solo una solución Natural* a base de bicarbonatos, la cual ayuda a usar muy poca agua y esto ayuda a que los muebles sequen más rápido.",
+            "purt_descripcion": "Adicional al paquete que ud escoja, si la mancha de orina tiene mucho tiempo o huele mucho, quizá sea necesario poner un producto llamado PURT (por sus siglas en inglés) el cual rompe la molécula de la urea, que es la responsable del olor y debe secar sola, tardando aproximadamente 8-10 horas. Los técnicos estando en su domicilio le dirán después de lavar si es necesario poner este producto, cuyo costo es de $540.00\nCon este producto se empapa el mueble y se deja penetrar lo mismo que penetró la orina y se deja actuar solito hasta que seque y así se desintegra la urea.",
+            "purt_costo": 540,
+            "descripcion_paquetes": {
+                "Sencillo": "-Aspirado profundo\n-Pre rociado y cepillado\n-Limpieza con la solución Natural y cepillado\n-Desmanchado",
+                "Ecológico": "-Aspirado profundo\n-Pre rociado y cepillado\n-Limpieza con la solución Natural y cepillado\n-Desmanchado\n+DESINFECCIÓN",
+                "Protección": "-Aspirado profundo\n-Pre rociado y cepillado\n-Limpieza con la solución Natural y cepillado\n-Desmanchado\n+PROTECCIÓN (con Teflon)",
+                "Premium": "-Aspirado profundo\n-Pre rociado y cepillado\n-Limpieza con la solución Natural y cepillado\n-Desmanchado\n+DESINFECCIÓN\n+PROTECCIÓN (con Teflon)",
+                "Healthy": "-Aspirado profundo\n-Pre rociado y cepillado\n-Limpieza con la solución Natural y cepillado\n-Desmanchado\n+DESINFECCIÓN\n+PROTECCIÓN (con Teflon)\n+ANTIACAROS"
+            },
+            "descuentos_paquete": {
+                "Sencillo": 0,
+                "Ecológico": 5,
+                "Protección": 10,
+                "Premium": 10,
+                "Healthy": 12
+            },
+            "cierre": "Es un servicio que toma como 2-3 hrs y tarda como 8-10 hr en secar.\nGracias por la confianza y quedo en espera de su respuesta\nSaludos cordiales,",
+            "firma": "Carmen Alonso\nMaxi Clean Chem Dry",
             "servicios_cantidad": [
                 "Alfombra (por m2)",
                 "Tapete Oriental / Lana",
@@ -173,12 +190,17 @@ USUARIOS = {
             "whatsapp": "WhatsApp",
         },
 
-        # 💰 COTIZADOR (vacío por ahora)
+        # 💰 COTIZADOR
         "cotizador": {
             "paquetes": [],
             "minimo": 0,
-            "mensaje_intro": "Le compartimos nuestra cotización:",
-            "mensaje_cierre": "¿Le agendamos su pedido?",
+            "intro": "Hola, muchas gracias por contactarnos.",
+            "purt_descripcion": "",
+            "purt_costo": 0,
+            "descripcion_paquetes": {},
+            "descuentos_paquete": {},
+            "cierre": "Gracias por su preferencia.\nSaludos cordiales,",
+            "firma": "Pasteles Lupita",
             "servicios_cantidad": [],
             "servicios_plazas": [],
             "servicios_sillas": [],
