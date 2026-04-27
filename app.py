@@ -700,28 +700,11 @@ elif pagina == "Servicios":
     año_serv = st.selectbox("Año:", años_sin_2026)
     df_s = df[df["Año"] == año_serv].copy()
 
-    # Filtrar filas sin servicio real
     df_s = df_s[df_s["Servicio"].notna()]
     df_s = df_s[df_s["Servicio"].astype(str).str.strip() != ""]
 
     categorias_config = USUARIOS[st.session_state["usuario"]].get("categorias", {})
 
-    # DEBUG
-    otros = []
-    for _, row in df_s.iterrows():
-        s = str(row["Servicio"]).lower()
-        encontradas = set()
-        for categoria, keywords in categorias_config.items():
-            for kw in keywords:
-                if kw in s:
-                    encontradas.add(categoria)
-        if not encontradas:
-            otros.append(row["Servicio"])
-
-    st.caption(f"Total en Otro: {len(otros)}")
-    st.caption(f"Ejemplos: {otros[:10]}")
-
-    # Expandir — cada fila puede contar para múltiples categorías
     filas_expandidas = []
     for _, row in df_s.iterrows():
         s = str(row["Servicio"]).lower()
