@@ -706,19 +706,24 @@ elif pagina == "Servicios":
 
     categorias_config = USUARIOS[st.session_state["usuario"]].get("categorias", {})
 
-    def categorizar(servicio):
-        if pd.isna(servicio):
-            return "Sin especificar"
-        s = str(servicio).lower()
+    # Expandir — cada fila puede contar para múltiples categorías
+    filas_expandidas = []
+    for _, row in df_s.iterrows():
+        s = str(row["Servicio"]).lower()
+        encontradas = set()
         for categoria, keywords in categorias_config.items():
             for kw in keywords:
                 if kw in s:
-                    return categoria
-        return "Otro"
+                    encontradas.add(categoria)
+        if not encontradas:
+            encontradas.add("Otro")
+        for cat in encontradas:
+            filas_expandidas.append(cat)
 
-    df_s["Categoria"] = df_s["Servicio"].apply(categorizar)
-    cats = df_s["Categoria"].value_counts().reset_index()
-    cats.columns = ["Categoria", "Cantidad"]
+    import collections
+    conteo = collections.Counter(filas_expandidas)
+    cats = pd.DataFrame(conteo.items(), columns=["Categoria", "Cantidad"])
+    cats = cats.sort_values("Cantidad", ascending=False)
 
     fig = px.pie(
         cats,
