@@ -706,6 +706,21 @@ elif pagina == "Servicios":
 
     categorias_config = USUARIOS[st.session_state["usuario"]].get("categorias", {})
 
+    # DEBUG
+    otros = []
+    for _, row in df_s.iterrows():
+        s = str(row["Servicio"]).lower()
+        encontradas = set()
+        for categoria, keywords in categorias_config.items():
+            for kw in keywords:
+                if kw in s:
+                    encontradas.add(categoria)
+        if not encontradas:
+            otros.append(row["Servicio"])
+
+    st.caption(f"Total en Otro: {len(otros)}")
+    st.caption(f"Ejemplos: {otros[:10]}")
+
     # Expandir — cada fila puede contar para múltiples categorías
     filas_expandidas = []
     for _, row in df_s.iterrows():
