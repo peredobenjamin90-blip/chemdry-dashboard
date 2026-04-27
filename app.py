@@ -700,22 +700,32 @@ elif pagina == "Servicios":
     año_serv = st.selectbox("Año:", años_sin_2026)
     df_s = df[df["Año"] == año_serv].copy()
 
+    # Categorías desde config
+    categorias_config = USUARIOS[st.session_state["usuario"]].get("categorias", {})
+
     def categorizar(servicio):
-            if pd.isna(servicio): return "Sin especificar"
-            s = str(servicio).lower()
-            if "alfombra" in s: return "Alfombra"
-            if "sala" in s: return "Sala"
-            if "colchón" in s or "colchon" in s: return "Colchon"
-            if "tapete" in s: return "Tapete"
-            if "silla" in s: return "Sillas"
-            if "auto" in s or "interior" in s: return "Interior auto"
-            if "futón" in s or "futon" in s: return "Futon"
-            return "Otro"
+        if pd.isna(servicio):
+            return "Sin especificar"
+        s = str(servicio).lower()
+        for categoria, keywords in categorias_config.items():
+            for kw in keywords:
+                if kw in s:
+                    return categoria
+        return "Otro"
 
     df_s["Categoria"] = df_s["Servicio"].apply(categorizar)
     cats = df_s["Categoria"].value_counts().reset_index()
     cats.columns = ["Categoria", "Cantidad"]
-    st.bar_chart(cats.set_index("Categoria"))
+
+    fig = px.pie(
+        cats,
+        names="Categoria",
+        values="Cantidad",
+        title="Servicios más vendidos",
+        hole=0.3
+    )
+    fig.update_traces(textposition="inside", textinfo="percent+label")
+    st.plotly_chart(fig, use_container_width=True)
     st.dataframe(cats, use_container_width=True)
 
     # ── FOLLOW UP ──
