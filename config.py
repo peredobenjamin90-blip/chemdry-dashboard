@@ -8,7 +8,8 @@ USUARIOS = {
         "app": {
             "nombre": "CRM Dashboard",
             "icono": "🧹",
-            "titulo_login": "CRM Alonso"
+            "titulo_login": "CRM Alonso",
+            "logo": "assets/chemdry-logo.png"
         },
 
         # 🔥 PLANTILLAS
@@ -150,7 +151,8 @@ USUARIOS = {
         "app": {
             "nombre": "CRM Dashboard",
             "icono": "🎂",
-            "titulo_login": "CRM Pasteles Lupita"
+            "titulo_login": "CRM Pasteles Lupita",
+            "logo": None
         },
 
         # 🔥 PLANTILLAS

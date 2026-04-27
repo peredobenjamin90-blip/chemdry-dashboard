@@ -139,45 +139,60 @@ def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
+
+        # Usuario FUERA del form para detectar logo dinámicamente
+        usuario_temp = st.text_input("Usuario", placeholder="Tu usuario")
+
+        # Mostrar logo o título según el usuario
+        logo_path = None
+        if usuario_temp in USUARIOS:
+            logo_path = USUARIOS[usuario_temp].get("app", {}).get("logo")
+
+        if logo_path:
+            try:
+                col_a, col_b, col_c = st.columns([1, 2, 1])
+                with col_b:
+                    st.image(logo_path, use_container_width=True)
+            except:
+                st.markdown(
+                    "<h1 style='text-align:center; color:#2B5BAA; font-size:2.5rem;'>CRM</h1>",
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown(
+                "<h1 style='text-align:center; color:#2B5BAA; font-size:2.5rem;'>CRM</h1>",
+                unsafe_allow_html=True
+            )
+
         st.markdown(
-            "<h1 style='text-align:center; color:#2B5BAA;'>CRM</h1>",
-            unsafe_allow_html=True
-        )
-        st.markdown(
-            "<h3 style='text-align:center; color:#2B5BAA;'>Dashboard</h3>",
+            "<h3 style='text-align:center; color:#2B5BAA;'>Iniciar sesión</h3>",
             unsafe_allow_html=True
         )
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<h4 style='text-align:center; color:#1a3d6e;'>Iniciar sesión</h4>", unsafe_allow_html=True)
 
-        usuario = st.text_input("Usuario", placeholder="Tu usuario")
-        password = st.text_input("Contraseña", type="password", placeholder="Tu contraseña")
+        # Contraseña y botón en form para que Enter funcione
+        with st.form("login_form"):
+            password = st.text_input(
+                "Contraseña",
+                type="password",
+                placeholder="Tu contraseña"
+            )
+            submitted = st.form_submit_button(
+                "Entrar",
+                use_container_width=True
+            )
 
-        st.markdown("""
-        <script>
-        document.addEventListener("keydown", function(e) {
-            if(e.key === "Enter") {
-                const buttons = window.parent.document.querySelectorAll("button");
-                buttons.forEach(b => { if(b.innerText === "Entrar") b.click(); });
-            }
-        });
-        </script>
-        """, unsafe_allow_html=True)
-
-        if st.button("Entrar"):
-            if usuario in USUARIOS and USUARIOS[usuario]["password"] == password:
-                st.session_state["usuario"] = usuario
-                st.session_state["empresa"] = USUARIOS[usuario]["empresa"]
-                st.session_state["sistema"] = USUARIOS[usuario]["sistema"]
-                st.session_state["SHEET_IDS"] = USUARIOS[usuario]["sheets"]
-                st.rerun()
-            else:
-                st.error("Usuario o contraseña incorrectos")
+            if submitted:
+                if usuario_temp in USUARIOS and USUARIOS[usuario_temp]["password"] == password:
+                    st.session_state["usuario"] = usuario_temp
+                    st.session_state["empresa"] = USUARIOS[usuario_temp]["empresa"]
+                    st.session_state["sistema"] = USUARIOS[usuario_temp]["sistema"]
+                    st.session_state["SHEET_IDS"] = USUARIOS[usuario_temp]["sheets"]
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos")
 
 
-if "usuario" not in st.session_state:
-    login()
-    st.stop()
 if "usuario" not in st.session_state:
     login()
     st.stop()
@@ -186,8 +201,6 @@ if "usuario" not in st.session_state:
 app_config = USUARIOS[st.session_state["usuario"]].get("app", {})
 NOMBRE_APP = app_config.get("nombre", "CRM Dashboard")
 
-
-# resto igual...
 # ── CARGAR DATOS ──
 df = cargar_datos(st.session_state.get("SHEET_IDS", {}))
 
