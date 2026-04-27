@@ -249,12 +249,10 @@ with st.sidebar:
     logo_path = USUARIOS[st.session_state["usuario"]].get("app", {}).get("logo")
     if logo_path:
         try:
-            col_a, col_b, col_c = st.columns([1, 2, 1])
-            with col_b:
-                st.image(logo_path, use_container_width=True)
+            st.sidebar.image(logo_path, width=150)
             st.markdown("<br>", unsafe_allow_html=True)
-        except:
-            pass
+        except Exception as e:
+            st.caption(f"Error logo: {e}")
 
     st.markdown(f"<h3 style='color:white'>{st.session_state['empresa']}</h3>", unsafe_allow_html=True)
     st.markdown("---")
