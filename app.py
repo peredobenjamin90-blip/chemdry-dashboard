@@ -140,37 +140,34 @@ def login():
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
 
-        # Usuario FUERA del form para detectar logo dinámicamente
-        usuario_temp = st.text_input("Usuario", placeholder="Tu usuario")
-
-        # Mostrar logo o título según el usuario
-        logo_path = None
-        if usuario_temp in USUARIOS:
-            logo_path = USUARIOS[usuario_temp].get("app", {}).get("logo")
-
-        if logo_path:
-            try:
-                col_a, col_b, col_c = st.columns([1, 2, 1])
-                with col_b:
-                    st.image(logo_path, use_container_width=True)
-            except:
-                st.markdown(
-                    "<h1 style='text-align:center; color:#2B5BAA; font-size:2.5rem;'>CRM</h1>",
-                    unsafe_allow_html=True
-                )
-        else:
-            st.markdown(
-                "<h1 style='text-align:center; color:#2B5BAA; font-size:2.5rem;'>CRM</h1>",
-                unsafe_allow_html=True
-            )
-
+        # Primero mostrar título default
+        st.markdown(
+            "<h1 style='text-align:center; color:#2B5BAA; font-size:2.5rem;'>CRM</h1>",
+            unsafe_allow_html=True
+        )
         st.markdown(
             "<h3 style='text-align:center; color:#2B5BAA;'>Iniciar sesión</h3>",
             unsafe_allow_html=True
         )
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Contraseña y botón en form para que Enter funcione
+        # Usuario fuera del form
+        usuario_temp = st.text_input("Usuario", placeholder="Tu usuario")
+
+        # Mostrar logo si el usuario existe y tiene logo
+        if usuario_temp in USUARIOS:
+            logo_path = USUARIOS[usuario_temp].get("app", {}).get("logo")
+            if logo_path:
+                try:
+                    col_a, col_b, col_c = st.columns([1, 2, 1])
+                    with col_b:
+                        st.image(logo_path, use_container_width=True)
+                except:
+                    pass
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Contraseña y botón en form para Enter
         with st.form("login_form"):
             password = st.text_input(
                 "Contraseña",
