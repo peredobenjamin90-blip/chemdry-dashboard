@@ -200,6 +200,9 @@ NOMBRE_APP = app_config.get("nombre", "CRM Dashboard")
 
 # ── CARGAR DATOS ──
 df = cargar_datos(st.session_state.get("SHEET_IDS", {}))
+st.caption(f"Sheet IDs: {st.session_state.get('SHEET_IDS', {})}")
+st.caption(f"Filas cargadas: {len(df)}")
+st.caption(f"Columnas: {list(df.columns)}")
 
 # ─────────────────────────────
 # 🔥 FALLBACK (SI NO HAY DATOS)
@@ -248,9 +251,8 @@ with st.sidebar:
     logo_path = USUARIOS[st.session_state["usuario"]].get("app", {}).get("logo")
     if logo_path:
         try:
-            import os
             from PIL import Image
-            logo_path_full = os.path.join(os.path.dirname(__file__), logo_path)
+            logo_path_full = f"/mount/src/crm/{logo_path}"
             img = Image.open(logo_path_full)
             st.sidebar.image(img, width=150)
             st.markdown("<br>", unsafe_allow_html=True)
