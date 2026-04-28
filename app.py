@@ -7,6 +7,13 @@ from config import USUARIOS
 import uuid
 import plotly.express as px
 import os
+ruta_base = os.path.dirname(os.path.abspath(__file__))
+st.caption(f"Ruta base: {ruta_base}")
+st.caption(f"Archivos: {os.listdir(ruta_base)}")
+try:
+    st.caption(f"Assets: {os.listdir(os.path.join(ruta_base, 'assets'))}")
+except Exception as e:
+    st.caption(f"Error assets: {e}")
 
 NOMBRE_APP = "CRM Dashboard"
 ICONO_APP = "🧹"
