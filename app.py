@@ -298,7 +298,7 @@ with st.sidebar:
     if logo_path:
         try:
             from PIL import Image
-            logo_path_full = f"/mount/src/crm/{logo_path}"
+            logo_path_full = os.path.join(os.path.dirname(os.path.abspath(__file__)), logo_path)
             img = Image.open(logo_path_full)
             st.sidebar.image(img, width=150)
             st.markdown("<br>", unsafe_allow_html=True)
