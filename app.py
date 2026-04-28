@@ -249,7 +249,9 @@ with st.sidebar:
     logo_path = USUARIOS[st.session_state["usuario"]].get("app", {}).get("logo")
     if logo_path:
         try:
-            st.sidebar.image(logo_path, width=150)
+            import os
+            logo_path_full = os.path.join(os.path.dirname(__file__), logo_path)
+            st.sidebar.image(logo_path_full, width=150)
             st.markdown("<br>", unsafe_allow_html=True)
         except Exception as e:
             st.caption(f"Error logo: {e}")
