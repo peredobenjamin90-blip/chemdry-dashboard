@@ -1,7 +1,7 @@
 USUARIOS = {
     "Maxiclean": {
         "password": "maxiclean2024",
-        "empresa": "ChemDry Zapopan",
+        "empresa": "MaxiClean ChemDry",
         "sistema": "CRM Alonso",
 
         # 🔥 APP
