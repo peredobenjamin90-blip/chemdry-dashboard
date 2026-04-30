@@ -283,13 +283,10 @@ with st.sidebar:
     logo_path = USUARIOS[st.session_state["usuario"]].get("app", {}).get("logo")
     if logo_path:
         try:
-            from PIL import Image
             logo_path_full = os.path.join(os.path.dirname(os.path.abspath(__file__)), logo_path)
-            img = Image.open(logo_path_full)
-            st.sidebar.image(img, width=150)
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.image(logo_path_full, width=120)
         except Exception as e:
-            st.caption(f"Error logo: {e}")
+            pass
 
     st.markdown(f"<h3 style='color:white'>{st.session_state['empresa']}</h3>", unsafe_allow_html=True)
     st.markdown("---")
