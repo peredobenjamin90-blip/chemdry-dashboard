@@ -22,6 +22,12 @@ st.markdown("""
 <style>
     [data-testid="stSidebar"] { background-color: #2B5BAA; }
     [data-testid="stSidebar"] * { color: white !important; }
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 0rem !important;
+    }
+    section[data-testid="stSidebar"] > div {
+        padding-top: 0.5rem !important;
+    }
     [data-testid="stMetric"] {
         background: transparent !important;
         border-radius: 12px;
