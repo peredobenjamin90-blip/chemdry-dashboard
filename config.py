@@ -142,16 +142,16 @@ USUARIOS = {
         }
     },
 
-    "Polla": {
-        "password": "Pasteles12",
-        "empresa": "Pasteles Lupita",
+    "Benjamin": {
+        "password": "Tel4903430",
+        "empresa": "Benjamin",
         "sistema": "CRM Alonso",
 
         # 🔥 APP
         "app": {
             "nombre": "CRM Dashboard",
-            "icono": "🎂",
-            "titulo_login": "CRM Pasteles Lupita",
+            "icono": "",
+            "titulo_login": "CRM Benjamin",
             "logo": None
         },
 
