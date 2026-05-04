@@ -796,6 +796,7 @@ elif pagina == "Servicios":
     # ── FOLLOW UP ──
 elif pagina == "Follow Up":
     st.title("Clientes para Follow Up")
+    import urllib.parse
 
     ultimo = df.groupby("Nombre").agg(Fecha=("Fecha","max")).reset_index()
     ultimo.columns = ["Nombre", "Ultimo servicio"]
@@ -808,7 +809,6 @@ elif pagina == "Follow Up":
 
     ultimo = ultimo.merge(tels, on="Nombre", how="left")
     ultimo = ultimo.merge(comentarios, on="Nombre", how="left")
-
     ultimo.columns = ["Nombre", "Ultimo servicio", "Tel", "Comentario"]
 
     col1, col2 = st.columns(2)
@@ -841,12 +841,71 @@ elif pagina == "Follow Up":
     st.metric("Clientes a contactar", len(sin_servicio))
     st.dataframe(sin_servicio, use_container_width=True)
 
-    import urllib.parse
+    # ─────────────────────────────
+    # 🚀 ENVÍO MASIVO
+    # ─────────────────────────────
+    st.markdown("### 🚀 Enviar mensaje a todos")
 
-    st.markdown("### 💬 Enviar mensaje por WhatsApp")
+    PLANTILLAS_MENSAJES = {
+        "Seguimiento": "Hola {nombre}, te contactamos de {empresa}. Solo para dar seguimiento a tu último servicio. ¿Cómo fue tu experiencia?",
+        "Recordatorio": "Hola {nombre}, en {empresa} te recordamos que ya pasó tiempo desde tu último servicio. ¿Te gustaría agendar?",
+        "Promoción": "Hola {nombre}, en {empresa} tenemos una promoción especial disponible. ¿Te interesa aprovecharla?",
+        "Reactivación": "Hola {nombre}, te extrañamos en {empresa} 😄 Tenemos disponibilidad esta semana. ¿Agendamos?"
+    }
+
+    plantilla_masiva = st.selectbox(
+        "Plantilla para envío masivo:",
+        list(PLANTILLAS_MENSAJES.keys()),
+        key="plantilla_masiva_followup"
+    )
+
+    mensaje_masivo_base = PLANTILLAS_MENSAJES[plantilla_masiva]
+    mensaje_masivo_preview = mensaje_masivo_base.format(
+        nombre="[Nombre]",
+        empresa=st.session_state.get("empresa", "nuestro negocio")
+    )
+    mensaje_masivo_edit = st.text_area(
+        "Edita el mensaje (usa {nombre} y {empresa} como variables):",
+        value=mensaje_masivo_preview,
+        key="mensaje_masivo_edit"
+    )
 
     if not sin_servicio.empty:
+        if st.button("💬 Enviar mensaje a todos", use_container_width=True):
+            st.markdown("#### Links generados — abre cada uno para enviar:")
+            cols = st.columns(3)
+            i = 0
+            sin_enviados = []
+            for _, row in sin_servicio.iterrows():
+                tel = str(row["Tel"]).replace("-", "").replace(" ", "").strip()
+                nombre_cliente = row["Nombre"]
 
+                if tel and tel != "nan":
+                    tel_completo = "52" + tel
+                    mensaje_final = mensaje_masivo_edit.format(
+                        nombre=nombre_cliente,
+                        empresa=st.session_state.get("empresa", "nuestro negocio")
+                    )
+                    mensaje_encoded = urllib.parse.quote(mensaje_final)
+                    url = f"https://wa.me/{tel_completo}?text={mensaje_encoded}"
+
+                    with cols[i % 3]:
+                        st.link_button(f"💬 {nombre_cliente}", url)
+                    i += 1
+                else:
+                    sin_enviados.append(nombre_cliente)
+
+            if sin_enviados:
+                st.warning(f"Sin teléfono: {', '.join(sin_enviados)}")
+
+    st.markdown("---")
+
+    # ─────────────────────────────
+    # 💬 MENSAJE INDIVIDUAL
+    # ─────────────────────────────
+    st.markdown("### 💬 Enviar mensaje individual")
+
+    if not sin_servicio.empty:
         cliente_sel = st.selectbox(
             "Selecciona cliente:",
             sin_servicio.apply(lambda x: f"{x['Nombre']} - {x['Tel']}", axis=1)
@@ -855,36 +914,24 @@ elif pagina == "Follow Up":
         nombre = cliente_sel.split(" - ")[0]
         telefono = cliente_sel.split(" - ")[1].replace("-", "").replace(" ", "")
 
-        # 🔥 PLANTILLAS DINÁMICAS
-        PLANTILLAS_MENSAJES = {
-            "Seguimiento": "Hola {nombre}, te contactamos de {empresa}. Solo para dar seguimiento a tu último servicio. ¿Cómo fue tu experiencia?",
-            "Recordatorio": "Hola {nombre}, en {empresa} te recordamos que ya pasó tiempo desde tu último servicio. ¿Te gustaría agendar?",
-            "Promoción": "Hola {nombre}, en {empresa} tenemos una promoción especial disponible. ¿Te interesa aprovecharla?",
-            "Reactivación": "Hola {nombre}, te extrañamos en {empresa} 😄 Tenemos disponibilidad esta semana. ¿Agendamos?"
-        }
-
-        plantilla_sel = st.selectbox(
+        plantilla_ind = st.selectbox(
             "Selecciona plantilla",
-            list(PLANTILLAS_MENSAJES.keys())
+            list(PLANTILLAS_MENSAJES.keys()),
+            key="plantilla_individual"
         )
 
-        mensaje_base = PLANTILLAS_MENSAJES[plantilla_sel]
-
+        mensaje_base = PLANTILLAS_MENSAJES[plantilla_ind]
         mensaje_generado = mensaje_base.format(
             nombre=nombre,
             empresa=st.session_state.get("empresa", "nuestro negocio")
         )
 
-        mensaje = st.text_area(
-            "Mensaje",
-            value=mensaje_generado
-        )
+        mensaje = st.text_area("Mensaje", value=mensaje_generado)
 
-        if telefono:
+        if telefono and telefono != "nan":
             telefono = "52" + telefono
             mensaje_encoded = urllib.parse.quote(mensaje)
             whatsapp_url = f"https://wa.me/{telefono}?text={mensaje_encoded}"
-
             st.link_button("Enviar mensaje por WhatsApp", whatsapp_url)
         else:
             st.warning("Cliente sin teléfono válido")
