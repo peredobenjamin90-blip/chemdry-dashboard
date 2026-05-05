@@ -797,12 +797,16 @@ elif pagina == "Servicios":
 elif pagina == "Follow Up":
     st.title("Clientes para Follow Up")
     import urllib.parse
+    from datetime import datetime
+
+    # Inicializar historial de bloques enviados
+    if "followup_historial" not in st.session_state:
+        st.session_state["followup_historial"] = []
 
     ultimo = df.groupby("Nombre").agg(Fecha=("Fecha","max")).reset_index()
     ultimo.columns = ["Nombre", "Ultimo servicio"]
 
     tels = df[["Nombre","Tel"]].drop_duplicates(subset="Nombre")
-
     comentarios = df.sort_values("Fecha").drop_duplicates(subset="Nombre", keep="last")[
         ["Nombre","Comentarios con llamada posterior a venta"]
     ]
@@ -812,10 +816,8 @@ elif pagina == "Follow Up":
     ultimo.columns = ["Nombre", "Ultimo servicio", "Tel", "Comentario"]
 
     col1, col2 = st.columns(2)
-
     with col1:
         meses = st.slider("Sin servicio hace más de X meses:", 1, 24, 6)
-
     with col2:
         mes_filtro = st.selectbox(
             "Mes del último servicio:",
@@ -838,11 +840,24 @@ elif pagina == "Follow Up":
 
     sin_servicio = sin_servicio.sort_values("Ultimo servicio")
 
+    # Calcular columna según tiempo sin servicio
+    hoy = datetime.now()
+    def get_columna_followup(ultima_fecha):
+        if pd.isna(ultima_fecha):
+            return 13  # 1 Año por default
+        meses_sin = (hoy - ultima_fecha).days / 30
+        if meses_sin < 3:
+            return 11  # 90 Dias
+        elif meses_sin < 8:
+            return 12  # 6 Meses
+        else:
+            return 13  # 1 Año
+
     st.metric("Clientes a contactar", len(sin_servicio))
     st.dataframe(sin_servicio, use_container_width=True)
 
     # ─────────────────────────────
-    # 🚀 ENVÍO MASIVO
+    # 🚀 ENVÍO MASIVO POR BLOQUES
     # ─────────────────────────────
     st.markdown("### 🚀 Enviar mensaje a todos")
 
@@ -854,49 +869,118 @@ elif pagina == "Follow Up":
     }
 
     plantilla_masiva = st.selectbox(
-        "Plantilla para envío masivo:",
+        "Plantilla:",
         list(PLANTILLAS_MENSAJES.keys()),
         key="plantilla_masiva_followup"
     )
 
-    mensaje_masivo_base = PLANTILLAS_MENSAJES[plantilla_masiva]
-    mensaje_masivo_preview = mensaje_masivo_base.format(
+    mensaje_masivo_preview = PLANTILLAS_MENSAJES[plantilla_masiva].format(
         nombre="[Nombre]",
         empresa=st.session_state.get("empresa", "nuestro negocio")
     )
     mensaje_masivo_edit = st.text_area(
-        "Edita el mensaje (usa {nombre} y {empresa} como variables):",
+        "Edita el mensaje ({nombre} y {empresa} se reemplazan automáticamente):",
         value=mensaje_masivo_preview,
         key="mensaje_masivo_edit"
     )
 
+    TAMANO_BLOQUE = 20
+
     if not sin_servicio.empty:
-        if st.button("💬 Enviar mensaje a todos", use_container_width=True):
-            st.markdown("#### Links generados — abre cada uno para enviar:")
-            cols = st.columns(3)
-            i = 0
-            sin_enviados = []
-            for _, row in sin_servicio.iterrows():
-                tel = str(row["Tel"]).replace("-", "").replace(" ", "").strip()
-                nombre_cliente = row["Nombre"]
+        clientes_validos = sin_servicio[
+            sin_servicio["Tel"].notna() &
+            (sin_servicio["Tel"].astype(str).str.strip() != "") &
+            (sin_servicio["Tel"].astype(str).str.strip() != "nan")
+        ].reset_index(drop=True)
 
-                if tel and tel != "nan":
-                    tel_completo = "52" + tel
-                    mensaje_final = mensaje_masivo_edit.format(
-                        nombre=nombre_cliente,
-                        empresa=st.session_state.get("empresa", "nuestro negocio")
-                    )
-                    mensaje_encoded = urllib.parse.quote(mensaje_final)
-                    url = f"https://wa.me/{tel_completo}?text={mensaje_encoded}"
+        total_bloques = (len(clientes_validos) + TAMANO_BLOQUE - 1) // TAMANO_BLOQUE
 
-                    with cols[i % 3]:
-                        st.link_button(f"💬 {nombre_cliente}", url)
-                    i += 1
-                else:
-                    sin_enviados.append(nombre_cliente)
+        st.caption(f"📦 {len(clientes_validos)} clientes divididos en {total_bloques} bloque(s) de {TAMANO_BLOQUE}")
 
-            if sin_enviados:
-                st.warning(f"Sin teléfono: {', '.join(sin_enviados)}")
+        bloque_sel = st.selectbox(
+            "Selecciona bloque a enviar:",
+            [f"Bloque {i+1} ({i*TAMANO_BLOQUE+1}-{min((i+1)*TAMANO_BLOQUE, len(clientes_validos))})"
+             for i in range(total_bloques)],
+            key="bloque_sel"
+        )
+
+        idx_bloque = int(bloque_sel.split(" ")[1]) - 1
+        inicio = idx_bloque * TAMANO_BLOQUE
+        fin = inicio + TAMANO_BLOQUE
+        clientes_bloque = clientes_validos.iloc[inicio:fin]
+
+        st.markdown(f"**Clientes en este bloque ({len(clientes_bloque)}):**")
+        cols = st.columns(3)
+        for i, (_, row) in enumerate(clientes_bloque.iterrows()):
+            tel = str(row["Tel"]).replace("-", "").replace(" ", "").strip()
+            tel_completo = "52" + tel
+            mensaje_final = mensaje_masivo_edit.format(
+                nombre=row["Nombre"],
+                empresa=st.session_state.get("empresa", "nuestro negocio")
+            )
+            mensaje_encoded = urllib.parse.quote(mensaje_final)
+            url = f"https://wa.me/{tel_completo}?text={mensaje_encoded}"
+            with cols[i % 3]:
+                st.link_button(f"💬 {row['Nombre']}", url)
+
+        st.markdown("---")
+
+        if st.button(f"✅ Marcar bloque {idx_bloque+1} como enviado y actualizar sheets", use_container_width=True):
+            timestamp = datetime.now().strftime("%d/%m/%Y %H:%M")
+            errores_update = []
+
+            with st.spinner("Actualizando sheets..."):
+                try:
+                    client = get_gspread_client()
+                    sheet_ids = st.session_state.get("SHEET_IDS", {})
+
+                    for _, row in clientes_bloque.iterrows():
+                        nombre_cliente = row["Nombre"]
+                        col_followup = get_columna_followup(row["Ultimo servicio"])
+
+                        # Buscar en todos los sheets
+                        for año, sheet_id in sheet_ids.items():
+                            if not sheet_id:
+                                continue
+                            try:
+                                sh = client.open_by_key(sheet_id)
+                                worksheet = sh.get_worksheet(0)
+                                celdas = worksheet.findall(nombre_cliente)
+
+                                for celda in celdas:
+                                    worksheet.update_cell(celda.row, col_followup, "Ok")
+
+                            except Exception as e:
+                                errores_update.append(f"{nombre_cliente} ({año}): {e}")
+
+                    # Guardar en historial del CRM
+                    st.session_state["followup_historial"].append({
+                        "bloque": idx_bloque + 1,
+                        "timestamp": timestamp,
+                        "mes_filtro": mes_filtro,
+                        "clientes": len(clientes_bloque),
+                        "plantilla": plantilla_masiva,
+                        "nombres": [r["Nombre"] for _, r in clientes_bloque.iterrows()]
+                    })
+
+                    st.success(f"✅ Bloque {idx_bloque+1} marcado como enviado — {timestamp}")
+                    if errores_update:
+                        st.warning(f"Algunos no se pudieron actualizar: {errores_update[:3]}")
+
+                    st.cache_data.clear()
+
+                except Exception as e:
+                    st.error(f"Error actualizando sheets: {e}")
+
+    # ─────────────────────────────
+    # 📋 HISTORIAL DE ENVÍOS
+    # ─────────────────────────────
+    if st.session_state["followup_historial"]:
+        st.markdown("### 📋 Historial de envíos esta sesión")
+        for h in reversed(st.session_state["followup_historial"]):
+            with st.expander(f"Bloque {h['bloque']} — {h['timestamp']} — {h['clientes']} clientes — {h['mes_filtro']}"):
+                st.caption(f"Plantilla: {h['plantilla']}")
+                st.write(", ".join(h['nombres']))
 
     st.markdown("---")
 
