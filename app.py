@@ -115,7 +115,87 @@ def cargar_datos(sheet_ids):
         return pd.DataFrame(columns=columnas_base + ["Año"])
 
     return pd.concat(dfs, ignore_index=True)
+def asignar_ids_clientes():
+    import unicodedata
+    import json
 
+    client = get_gspread_client()
+    sheet_ids = st.session_state.get("SHEET_IDS", {})
+
+    def normalizar(nombre):
+        nombre = str(nombre).strip().lower()
+        nombre = unicodedata.normalize("NFKD", nombre)
+        nombre = "".join(c for c in nombre if not unicodedata.combining(c))
+        nombre = " ".join(nombre.split())
+        return nombre
+
+    datos_sheets = {}
+    for año, sheet_id in sheet_ids.items():
+        if not sheet_id:
+            continue
+        try:
+            sh = client.open_by_key(sheet_id)
+            ws = sh.get_worksheet(0)
+            col_nombres = ws.col_values(4)  # col D = Nombre (antes de insertar)
+            datos_sheets[año] = {"ws": ws, "sh": sh, "nombres": col_nombres}
+        except Exception as e:
+            st.warning(f"No se pudo leer el sheet {año}: {e}")
+
+    if not datos_sheets:
+        st.error("No hay sheets disponibles.")
+        return
+
+    mapa_id = {}
+    contador = 1
+    for año, data in datos_sheets.items():
+        for nombre in data["nombres"][1:]:
+            if not nombre or str(nombre).strip() in ["", "nan"]:
+                continue
+            norm = normalizar(nombre)
+            if norm not in mapa_id:
+                mapa_id[norm] = contador
+                contador += 1
+
+    st.info(f"Se identificaron {contador - 1} clientes únicos.")
+
+    for año, data in datos_sheets.items():
+        ws = data["ws"]
+        sh = data["sh"]
+        nombres = data["nombres"]
+        try:
+            sheet_tab_id = ws.id
+            sh.batch_update({"requests": [{
+                "insertDimension": {
+                    "range": {
+                        "sheetId": sheet_tab_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": 3,
+                        "endIndex": 4
+                    },
+                    "inheritFromBefore": False
+                }
+            }]})
+
+            ws.update_cell(1, 4, "ID Cliente")
+
+            updates = []
+            for i, nombre in enumerate(nombres[1:], start=2):
+                if not nombre or str(nombre).strip() in ["", "nan"]:
+                    continue
+                norm = normalizar(nombre)
+                id_cliente = mapa_id.get(norm, "")
+                updates.append({"range": f"D{i}", "values": [[id_cliente]]})
+
+            for i in range(0, len(updates), 100):
+                ws.batch_update(updates[i:i+100])
+
+            st.success(f"✅ Sheet {año} — {len(updates)} filas actualizadas")
+        except Exception as e:
+            st.error(f"Error en sheet {año}: {e}")
+
+    st.success(f"🎉 Listo — columna ID Cliente agregada entre Fecha y Nombre")
+    st.warning("Estructura nueva: A=Folio sistema | B=Folio interno | C=Fecha | D=ID Cliente | E=Nombre | F=Tel")
+    st.cache_data.clear()
 
 # 🔥 FUNCIÓN AGREGAR CLIENTES (igual pero mejorada leve)
 def agregar_a_sheets(data):
