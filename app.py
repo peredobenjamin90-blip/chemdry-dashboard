@@ -840,11 +840,10 @@ elif pagina == "Follow Up":
 
     sin_servicio = sin_servicio.sort_values("Ultimo servicio")
 
-    # Calcular columna según tiempo sin servicio
     hoy = datetime.now()
     def get_columna_followup(ultima_fecha):
         if pd.isna(ultima_fecha):
-            return 13  # 1 Año por default
+            return 13
         meses_sin = (hoy - ultima_fecha).days / 30
         if meses_sin < 3:
             return 11  # 90 Dias
@@ -909,9 +908,9 @@ elif pagina == "Follow Up":
         fin = inicio + TAMANO_BLOQUE
         clientes_bloque = clientes_validos.iloc[inicio:fin]
 
-        st.markdown(f"**Clientes en este bloque ({len(clientes_bloque)}):**")
-        cols = st.columns(3)
-        for i, (_, row) in enumerate(clientes_bloque.iterrows()):
+        # Generar URLs del bloque
+        urls_bloque = []
+        for _, row in clientes_bloque.iterrows():
             tel = str(row["Tel"]).replace("-", "").replace(" ", "").strip()
             tel_completo = "52" + tel
             mensaje_final = mensaje_masivo_edit.format(
@@ -919,9 +918,38 @@ elif pagina == "Follow Up":
                 empresa=st.session_state.get("empresa", "nuestro negocio")
             )
             mensaje_encoded = urllib.parse.quote(mensaje_final)
-            url = f"https://wa.me/{tel_completo}?text={mensaje_encoded}"
+            urls_bloque.append(f"https://wa.me/{tel_completo}?text={mensaje_encoded}")
+
+        st.markdown(f"**Clientes en este bloque ({len(clientes_bloque)}):**")
+        cols = st.columns(3)
+        for i, (url, (_, row)) in enumerate(zip(urls_bloque, clientes_bloque.iterrows())):
             with cols[i % 3]:
                 st.link_button(f"💬 {row['Nombre']}", url)
+
+        # Botón abrir todos
+        urls_js = str(urls_bloque).replace("'", '"')
+        st.markdown(f"""
+<button onclick="
+    var urls = {urls_js};
+    urls.forEach(function(url, i) {{
+        setTimeout(function() {{
+            window.open(url, '_blank');
+        }}, i * 500);
+    }});
+" style="
+    background-color: #25D366;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 16px;
+    width: 100%;
+    cursor: pointer;
+    margin-top: 10px;
+">
+    🚀 Abrir todos los WhatsApp del bloque {idx_bloque+1}
+</button>
+""", unsafe_allow_html=True)
 
         st.markdown("---")
 
@@ -938,7 +966,6 @@ elif pagina == "Follow Up":
                         nombre_cliente = row["Nombre"]
                         col_followup = get_columna_followup(row["Ultimo servicio"])
 
-                        # Buscar en todos los sheets
                         for año, sheet_id in sheet_ids.items():
                             if not sheet_id:
                                 continue
@@ -946,14 +973,11 @@ elif pagina == "Follow Up":
                                 sh = client.open_by_key(sheet_id)
                                 worksheet = sh.get_worksheet(0)
                                 celdas = worksheet.findall(nombre_cliente)
-
                                 for celda in celdas:
                                     worksheet.update_cell(celda.row, col_followup, "Ok")
-
                             except Exception as e:
                                 errores_update.append(f"{nombre_cliente} ({año}): {e}")
 
-                    # Guardar en historial del CRM
                     st.session_state["followup_historial"].append({
                         "bloque": idx_bloque + 1,
                         "timestamp": timestamp,
@@ -966,7 +990,6 @@ elif pagina == "Follow Up":
                     st.success(f"✅ Bloque {idx_bloque+1} marcado como enviado — {timestamp}")
                     if errores_update:
                         st.warning(f"Algunos no se pudieron actualizar: {errores_update[:3]}")
-
                     st.cache_data.clear()
 
                 except Exception as e:
