@@ -833,6 +833,14 @@ elif pagina == "Clientes":
             st.markdown(f"[💬 Abrir WhatsApp]({url})")
         else:
             st.warning("Este cliente no tiene teléfono válido")
+    st.markdown("---")
+    st.markdown("### 🔢 Numeración única de clientes")
+    with st.expander("⚠️ Usar solo una vez"):
+        st.markdown("Inserta columna **ID Cliente** entre Fecha y Nombre en todos los sheets. Clientes repetidos entre años reciben el mismo número. **No correr dos veces.**")
+        confirmar = st.checkbox("Entiendo que esto modifica los sheets permanentemente")
+        if confirmar:
+            if st.button("🔢 Asignar IDs únicos", use_container_width=True):
+                asignar_ids_clientes()
         # ── SERVICIOS ──
 elif pagina == "Servicios":
     st.title("Servicios más vendidos")
