@@ -886,6 +886,7 @@ elif pagina == "Follow Up":
     st.title("Clientes para Follow Up")
     import urllib.parse
     import json
+    import base64
     import streamlit.components.v1 as components
     from datetime import datetime
 
@@ -1003,37 +1004,69 @@ elif pagina == "Follow Up":
                 empresa=st.session_state.get("empresa", "nuestro negocio")
             )
             mensaje_encoded = urllib.parse.quote(mensaje_final)
-            urls_bloque.append(f"https://wa.me/{tel_completo}?text={mensaje_encoded}")
+            urls_bloque.append((row["Nombre"], f"https://wa.me/{tel_completo}?text={mensaje_encoded}"))
 
         st.markdown(f"**Clientes en este bloque ({len(clientes_bloque)}):**")
         cols = st.columns(3)
-        for i, (url, (_, row)) in enumerate(zip(urls_bloque, clientes_bloque.iterrows())):
+        for i, (nombre_btn, url_btn) in enumerate(urls_bloque):
             with cols[i % 3]:
-                st.link_button(f"💬 {row['Nombre']}", url)
+                st.link_button(f"💬 {nombre_btn}", url_btn)
 
-        # ── BOTÓN ABRIR TODOS ──
-        urls_json = json.dumps(urls_bloque)
+        # ── PANEL DE ENVÍO MASIVO ──
+        html_links = ""
+        for nombre_link, url_link in urls_bloque:
+            html_links += f"""
+            <a href="{url_link}" target="_blank" style="
+                display: block;
+                background-color: #25D366;
+                color: white;
+                text-decoration: none;
+                padding: 12px 16px;
+                border-radius: 8px;
+                margin-bottom: 8px;
+                font-size: 15px;
+                font-family: sans-serif;
+            ">💬 {nombre_link}</a>
+            """
+
+        pagina_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>WhatsApp Follow Up — Bloque {idx_bloque + 1}</title>
+            <style>
+                body {{ font-family: sans-serif; padding: 24px; max-width: 500px; margin: auto; background: #f9f9f9; }}
+                h2 {{ color: #128C7E; }}
+                p {{ color: #555; margin-bottom: 20px; }}
+            </style>
+        </head>
+        <body>
+            <h2>📋 Bloque {idx_bloque + 1} — {len(urls_bloque)} contactos</h2>
+            <p>Haz click en cada nombre para abrir WhatsApp Web en una pestaña nueva.</p>
+            {html_links}
+        </body>
+        </html>
+        """
+
+        b64 = base64.b64encode(pagina_html.encode("utf-8")).decode("utf-8")
+        data_url = f"data:text/html;base64,{b64}"
+
         components.html(f"""
-        <button onclick="
-            var urls = {urls_json};
-            urls.forEach(function(url, i) {{
-                setTimeout(function() {{
-                    window.open(url, '_blank');
-                }}, i * 600);
-            }});
-        " style="
-            background-color: #25D366;
+        <a href="{data_url}" target="_blank" style="
+            display: block;
+            background-color: #128C7E;
             color: white;
-            border: none;
+            text-decoration: none;
+            text-align: center;
             border-radius: 8px;
             padding: 14px 24px;
             font-size: 16px;
-            width: 100%;
-            cursor: pointer;
             font-family: sans-serif;
+            margin-top: 8px;
         ">
-            🚀 Abrir todos los WhatsApp del bloque {idx_bloque + 1} ({len(urls_bloque)} contactos)
-        </button>
+            🚀 Abrir panel de envío — Bloque {idx_bloque + 1} ({len(urls_bloque)} contactos)
+        </a>
         """, height=65)
 
         st.markdown("---")
@@ -1069,7 +1102,7 @@ elif pagina == "Follow Up":
                         "mes_filtro": mes_filtro,
                         "clientes": len(clientes_bloque),
                         "plantilla": plantilla_masiva,
-                        "nombres": [r["Nombre"] for _, r in clientes_bloque.iterrows()]
+                        "nombres": [nombre_btn for nombre_btn, _ in urls_bloque]
                     })
 
                     st.success(f"✅ Bloque {idx_bloque+1} marcado como enviado — {timestamp}")
