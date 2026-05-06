@@ -513,20 +513,29 @@ if pagina == "Resumen":
     ]
 
     if not clientes_pendientes.empty:
-        st.warning(
-            f"🔔 **{len(clientes_pendientes)} clientes** llevan {meses_recordatorio}+ meses sin servicio. "
-            f"Ve a **Follow Up** para contactarlos."
-        )
+        col_banner, col_config = st.columns([4, 1])
+        with col_banner:
+            if st.button(
+                f"🔔 {len(clientes_pendientes)} clientes llevan {meses_recordatorio}+ meses sin servicio — Ver en Follow Up →",
+                use_container_width=True,
+                key="btn_banner_followup"
+            ):
+                st.session_state["pagina"] = "Follow Up"
+                st.session_state["followup_meses_override"] = meses_recordatorio
+                st.rerun()
+        with col_config:
+            if st.button("⚙️ Configurar", key="btn_config_recordatorio", use_container_width=True):
+                st.session_state["mostrar_config_recordatorio"] = not st.session_state.get("mostrar_config_recordatorio", False)
 
-    with st.expander("⚙️ Configurar recordatorio"):
-        nuevo_umbral = st.slider(
-            "Avisar cuando un cliente lleve X meses sin servicio:",
-            1, 24, meses_recordatorio,
-            key="slider_recordatorio"
-        )
-        if nuevo_umbral != meses_recordatorio:
-            st.session_state["meses_recordatorio"] = nuevo_umbral
-            st.rerun()
+        if st.session_state.get("mostrar_config_recordatorio", False):
+            nuevo_umbral = st.slider(
+                "Avisar cuando un cliente lleve X meses sin servicio:",
+                1, 24, meses_recordatorio,
+                key="slider_recordatorio"
+            )
+            if nuevo_umbral != meses_recordatorio:
+                st.session_state["meses_recordatorio"] = nuevo_umbral
+                st.rerun()
 
     st.markdown("---")
 
@@ -1000,6 +1009,8 @@ elif pagina == "Follow Up":
 
     if "followup_historial" not in st.session_state:
         st.session_state["followup_historial"] = []
+    if "followup_resultados" not in st.session_state:
+        st.session_state["followup_resultados"] = []
 
     ultimo = df.groupby("Nombre").agg(Fecha=("Fecha","max")).reset_index()
     ultimo.columns = ["Nombre", "Ultimo servicio"]
@@ -1013,9 +1024,16 @@ elif pagina == "Follow Up":
     ultimo = ultimo.merge(comentarios, on="Nombre", how="left")
     ultimo.columns = ["Nombre", "Ultimo servicio", "Tel", "Comentario"]
 
+    # ── Si viene del banner, usar ese umbral; si no, el slider ──
+    meses_default = st.session_state.pop("followup_meses_override", None)
+
     col1, col2 = st.columns(2)
     with col1:
-        meses = st.slider("Sin servicio hace más de X meses:", 1, 24, 6)
+        meses = st.slider(
+            "Sin servicio hace más de X meses:",
+            1, 24,
+            meses_default if meses_default is not None else 6
+        )
     with col2:
         mes_filtro = st.selectbox(
             "Mes del último servicio:",
@@ -1125,66 +1143,67 @@ elif pagina == "Follow Up":
         for nombre_link, url_link in urls_bloque:
             html_links += f"""
             <a href="{url_link}" target="_blank" style="
-                display: block;
-                background-color: #25D366;
-                color: white;
-                text-decoration: none;
-                padding: 12px 16px;
-                border-radius: 8px;
-                margin-bottom: 8px;
-                font-size: 15px;
-                font-family: sans-serif;
+                display:block; background-color:#25D366; color:white;
+                text-decoration:none; padding:12px 16px; border-radius:8px;
+                margin-bottom:8px; font-size:15px; font-family:sans-serif;
             ">💬 {nombre_link}</a>
             """
 
         pagina_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>WhatsApp Follow Up — Bloque {idx_bloque + 1}</title>
-            <style>
-                body {{ font-family: sans-serif; padding: 24px; max-width: 500px; margin: auto; background: #f9f9f9; }}
-                h2 {{ color: #128C7E; }}
-                p {{ color: #555; margin-bottom: 20px; }}
-            </style>
-        </head>
+        <!DOCTYPE html><html><head><meta charset="utf-8">
+        <title>WhatsApp Follow Up — Bloque {idx_bloque + 1}</title>
+        <style>
+            body{{font-family:sans-serif;padding:24px;max-width:500px;margin:auto;background:#f9f9f9;}}
+            h2{{color:#128C7E;}}p{{color:#555;margin-bottom:20px;}}
+        </style></head>
         <body>
             <h2>📋 Bloque {idx_bloque + 1} — {len(urls_bloque)} contactos</h2>
             <p>Haz click en cada nombre para abrir WhatsApp Web en una pestaña nueva.</p>
             {html_links}
-        </body>
-        </html>
+        </body></html>
         """
 
         b64 = base64.b64encode(pagina_html.encode("utf-8")).decode("utf-8")
-        data_url = f"data:text/html;base64,{b64}"
-
         components.html(f"""
-        <a href="{data_url}" target="_blank" style="
-            display: block;
-            background-color: #128C7E;
-            color: white;
-            text-decoration: none;
-            text-align: center;
-            border-radius: 8px;
-            padding: 14px 24px;
-            font-size: 16px;
-            font-family: sans-serif;
-            margin-top: 8px;
-        ">
-            🚀 Abrir panel de envío — Bloque {idx_bloque + 1} ({len(urls_bloque)} contactos)
-        </a>
+        <a href="data:text/html;base64,{b64}" target="_blank" style="
+            display:block; background-color:#128C7E; color:white;
+            text-decoration:none; text-align:center; border-radius:8px;
+            padding:14px 24px; font-size:16px; font-family:sans-serif; margin-top:8px;
+        ">🚀 Abrir panel de envío — Bloque {idx_bloque + 1} ({len(urls_bloque)} contactos)</a>
         """, height=65)
 
         st.markdown("---")
 
-        if st.button(f"✅ Marcar bloque {idx_bloque+1} como enviado y actualizar sheets", use_container_width=True):
+        # ── REGISTRO DE RESULTADO ──
+        st.markdown("### ✅ Marcar resultado del bloque")
+        st.caption("Registra qué pasó con cada cliente. Esto alimenta el dashboard de conversión en Resumen.")
+
+        OPCIONES_RESULTADO = ["Agendó", "No contestó", "Número inválido", "No le interesa", "Pendiente"]
+
+        with st.expander(f"Registrar resultados — Bloque {idx_bloque + 1}"):
+            resultados_bloque = {}
+            for _, row in clientes_bloque.iterrows():
+                resultados_bloque[row["Nombre"]] = st.selectbox(
+                    row["Nombre"],
+                    OPCIONES_RESULTADO,
+                    index=4,
+                    key=f"resultado_{row['Nombre']}_{idx_bloque}"
+                )
+
+        if st.button(f"✅ Guardar resultados y marcar bloque {idx_bloque+1} como enviado", use_container_width=True):
             timestamp = datetime.now().strftime("%d/%m/%Y %H:%M")
             errores_update = []
 
-            with st.spinner("Actualizando sheets..."):
+            with st.spinner("Guardando..."):
                 try:
+                    for nombre_r, resultado_r in resultados_bloque.items():
+                        st.session_state["followup_resultados"].append({
+                            "nombre": nombre_r,
+                            "resultado": resultado_r,
+                            "timestamp": timestamp,
+                            "bloque": idx_bloque + 1
+                        })
+
                     client = get_gspread_client()
                     sheet_ids = st.session_state.get("SHEET_IDS", {})
 
@@ -1200,7 +1219,8 @@ elif pagina == "Follow Up":
                                 worksheet = sh.get_worksheet(0)
                                 celdas = worksheet.findall(nombre_cliente)
                                 for celda in celdas:
-                                    worksheet.update_cell(celda.row, col_followup, "Ok")
+                                    resultado_celda = resultados_bloque.get(nombre_cliente, "Ok")
+                                    worksheet.update_cell(celda.row, col_followup, resultado_celda)
                             except Exception as e:
                                 errores_update.append(f"{nombre_cliente} ({año}): {e}")
 
@@ -1210,23 +1230,28 @@ elif pagina == "Follow Up":
                         "mes_filtro": mes_filtro,
                         "clientes": len(clientes_bloque),
                         "plantilla": plantilla_masiva,
-                        "nombres": [nombre_btn for nombre_btn, _ in urls_bloque]
+                        "nombres": [n for n, _ in urls_bloque],
+                        "resultados": resultados_bloque
                     })
 
-                    st.success(f"✅ Bloque {idx_bloque+1} marcado como enviado — {timestamp}")
+                    st.success(f"✅ Bloque {idx_bloque+1} guardado — {timestamp}")
                     if errores_update:
                         st.warning(f"Algunos no se pudieron actualizar: {errores_update[:3]}")
                     st.cache_data.clear()
 
                 except Exception as e:
-                    st.error(f"Error actualizando sheets: {e}")
+                    st.error(f"Error guardando: {e}")
 
     if st.session_state["followup_historial"]:
         st.markdown("### 📋 Historial de envíos esta sesión")
         for h in reversed(st.session_state["followup_historial"]):
             with st.expander(f"Bloque {h['bloque']} — {h['timestamp']} — {h['clientes']} clientes — {h['mes_filtro']}"):
                 st.caption(f"Plantilla: {h['plantilla']}")
-                st.write(", ".join(h['nombres']))
+                if "resultados" in h:
+                    for nombre_h, resultado_h in h["resultados"].items():
+                        st.write(f"• {nombre_h}: **{resultado_h}**")
+                else:
+                    st.write(", ".join(h['nombres']))
 
     st.markdown("---")
 
