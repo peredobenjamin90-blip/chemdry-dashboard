@@ -797,9 +797,10 @@ elif pagina == "Servicios":
 elif pagina == "Follow Up":
     st.title("Clientes para Follow Up")
     import urllib.parse
+    import json
+    import streamlit.components.v1 as components
     from datetime import datetime
 
-    # Inicializar historial de bloques enviados
     if "followup_historial" not in st.session_state:
         st.session_state["followup_historial"] = []
 
@@ -846,18 +847,15 @@ elif pagina == "Follow Up":
             return 13
         meses_sin = (hoy - ultima_fecha).days / 30
         if meses_sin < 3:
-            return 11  # 90 Dias
+            return 11
         elif meses_sin < 8:
-            return 12  # 6 Meses
+            return 12
         else:
-            return 13  # 1 Año
+            return 13
 
     st.metric("Clientes a contactar", len(sin_servicio))
     st.dataframe(sin_servicio, use_container_width=True)
 
-    # ─────────────────────────────
-    # 🚀 ENVÍO MASIVO POR BLOQUES
-    # ─────────────────────────────
     st.markdown("### 🚀 Enviar mensaje a todos")
 
     PLANTILLAS_MENSAJES = {
@@ -908,7 +906,6 @@ elif pagina == "Follow Up":
         fin = inicio + TAMANO_BLOQUE
         clientes_bloque = clientes_validos.iloc[inicio:fin]
 
-        # Generar URLs del bloque
         urls_bloque = []
         for _, row in clientes_bloque.iterrows():
             tel = str(row["Tel"]).replace("-", "").replace(" ", "").strip()
@@ -926,30 +923,30 @@ elif pagina == "Follow Up":
             with cols[i % 3]:
                 st.link_button(f"💬 {row['Nombre']}", url)
 
-        # Botón abrir todos
-        urls_js = str(urls_bloque).replace("'", '"')
-        st.markdown(f"""
-<button onclick="
-    var urls = {urls_js};
-    urls.forEach(function(url, i) {{
-        setTimeout(function() {{
-            window.open(url, '_blank');
-        }}, i * 500);
-    }});
-" style="
-    background-color: #25D366;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px 24px;
-    font-size: 16px;
-    width: 100%;
-    cursor: pointer;
-    margin-top: 10px;
-">
-    🚀 Abrir todos los WhatsApp del bloque {idx_bloque+1}
-</button>
-""", unsafe_allow_html=True)
+        # ── BOTÓN ABRIR TODOS ──
+        urls_json = json.dumps(urls_bloque)
+        components.html(f"""
+        <button onclick="
+            var urls = {urls_json};
+            urls.forEach(function(url, i) {{
+                setTimeout(function() {{
+                    window.open(url, '_blank');
+                }}, i * 600);
+            }});
+        " style="
+            background-color: #25D366;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 24px;
+            font-size: 16px;
+            width: 100%;
+            cursor: pointer;
+            font-family: sans-serif;
+        ">
+            🚀 Abrir todos los WhatsApp del bloque {idx_bloque + 1} ({len(urls_bloque)} contactos)
+        </button>
+        """, height=65)
 
         st.markdown("---")
 
@@ -995,9 +992,6 @@ elif pagina == "Follow Up":
                 except Exception as e:
                     st.error(f"Error actualizando sheets: {e}")
 
-    # ─────────────────────────────
-    # 📋 HISTORIAL DE ENVÍOS
-    # ─────────────────────────────
     if st.session_state["followup_historial"]:
         st.markdown("### 📋 Historial de envíos esta sesión")
         for h in reversed(st.session_state["followup_historial"]):
@@ -1007,9 +1001,6 @@ elif pagina == "Follow Up":
 
     st.markdown("---")
 
-    # ─────────────────────────────
-    # 💬 MENSAJE INDIVIDUAL
-    # ─────────────────────────────
     st.markdown("### 💬 Enviar mensaje individual")
 
     if not sin_servicio.empty:
