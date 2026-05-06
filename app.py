@@ -524,8 +524,14 @@ if pagina == "Resumen":
                 st.session_state["followup_meses_override"] = meses_recordatorio
                 st.rerun()
         with col_config:
-            if st.button("⚙️ Configurar", key="btn_config_recordatorio", use_container_width=True):
-                st.session_state["mostrar_config_recordatorio"] = not st.session_state.get("mostrar_config_recordatorio", False)
+            if st.button(
+                "⚙️ Configurar",
+                key="btn_config_recordatorio",
+                use_container_width=True
+            ):
+                st.session_state["mostrar_config_recordatorio"] = not st.session_state.get(
+                    "mostrar_config_recordatorio", False
+                )
 
         if st.session_state.get("mostrar_config_recordatorio", False):
             nuevo_umbral = st.slider(
@@ -540,8 +546,10 @@ if pagina == "Resumen":
     st.markdown("---")
 
     # ─────────────────────────────
-    # 📊 MÉTRICAS PRINCIPALES
+    # 📊 VENTAS Y FLUJO DE EFECTIVO
     # ─────────────────────────────
+    st.subheader("📊 Ventas")
+
     año_resumen = st.selectbox(
         "Año:",
         años_sin_2026,
@@ -575,47 +583,16 @@ if pagina == "Resumen":
         )
 
     # ─────────────────────────────
-    # 📈 DASHBOARD CONVERSIÓN FOLLOW UP
-    # ─────────────────────────────
-    st.markdown("---")
-    st.markdown("## 📈 Conversión de Follow Up")
-
-    if "followup_resultados" not in st.session_state:
-        st.session_state["followup_resultados"] = []
-
-    resultados = st.session_state["followup_resultados"]
-
-    if resultados:
-        import collections
-        conteo_resultados = collections.Counter(r["resultado"] for r in resultados)
-        total_contactados = len(resultados)
-        agendaron = conteo_resultados.get("Agendó", 0)
-        tasa = (agendaron / total_contactados * 100) if total_contactados > 0 else 0
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total contactados", total_contactados)
-        col2.metric("Agendaron", agendaron)
-        col3.metric("Tasa de conversión", f"{tasa:.1f}%")
-
-        df_res = pd.DataFrame(resultados)
-        conteo_df = df_res["resultado"].value_counts().reset_index()
-        conteo_df.columns = ["Resultado", "Cantidad"]
-        st.bar_chart(conteo_df.set_index("Resultado"))
-    else:
-        st.info("Aún no hay resultados de follow up registrados. Márcalos en la página Follow Up.")
-
-    # ─────────────────────────────
     # 💰 FLUJO DE EFECTIVO
     # ─────────────────────────────
-    st.markdown("---")
-    st.markdown("## 💰 Flujo de efectivo")
+    st.subheader("💰 Flujo de efectivo")
 
     finanzas_usuario = USUARIOS[st.session_state["usuario"]].get("finanzas", {})
 
     if finanzas_usuario:
         años_finanzas = list(finanzas_usuario.keys())
         año_finanzas = st.selectbox(
-            "Año financiero",
+            "Año financiero:",
             años_finanzas,
             index=len(años_finanzas)-1
         )
@@ -631,6 +608,8 @@ if pagina == "Resumen":
         except Exception as e:
             st.error("Error cargando finanzas")
             st.write(e)
+    else:
+        st.info("No hay datos de flujo de efectivo configurados.")
     # ── VENTAS ──
 elif pagina == "Ventas":
     st.title("Análisis de Ventas")
@@ -687,7 +666,10 @@ elif pagina == "Ventas":
         col1.metric("Proyección anual 2026", f"${proyeccion:,.0f}")
         col2.metric("Ventas reales 2026", f"${ventas_2026_acum:,.0f}")
         col3.metric("Tendencia vs 2025", f"{tendencia:+.1f}%")
-        st.markdown(f"<p style='color:{color}'>Basado en {meses_con_datos_2026} mes(es) de datos reales de 2026</p>", unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='color:{color}'>Basado en {meses_con_datos_2026} mes(es) de datos reales de 2026</p>",
+            unsafe_allow_html=True
+        )
 
         st.subheader("Detalle mes a mes — 2026 vs 2025")
         nombres_meses_completos = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
@@ -706,6 +688,43 @@ elif pagina == "Ventas":
                 "Variación": f"{pct:+.1f}%"
             })
         st.dataframe(pd.DataFrame(resumen_meses), use_container_width=True, hide_index=True)
+
+    # ─────────────────────────────
+    # 📈 CONVERSIÓN DE FOLLOW UP
+    # ─────────────────────────────
+    st.markdown("---")
+    st.subheader("📈 Conversión de Follow Up")
+
+    if "followup_resultados" not in st.session_state:
+        st.session_state["followup_resultados"] = []
+
+    resultados = st.session_state["followup_resultados"]
+
+    if resultados:
+        import collections
+        conteo_resultados = collections.Counter(r["resultado"] for r in resultados)
+        total_contactados = len(resultados)
+        agendaron = conteo_resultados.get("Agendó", 0)
+        tasa = (agendaron / total_contactados * 100) if total_contactados > 0 else 0
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total contactados", total_contactados)
+        col2.metric("Agendaron", agendaron)
+        col3.metric("Tasa de conversión", f"{tasa:.1f}%")
+
+        df_res = pd.DataFrame(resultados)
+        conteo_df = df_res["resultado"].value_counts().reset_index()
+        conteo_df.columns = ["Resultado", "Cantidad"]
+        st.bar_chart(conteo_df.set_index("Resultado"))
+
+        with st.expander("Ver detalle completo"):
+            st.dataframe(
+                pd.DataFrame(resultados)[["timestamp", "nombre", "resultado", "bloque"]],
+                use_container_width=True,
+                hide_index=True
+            )
+    else:
+        st.info("Aún no hay resultados de follow up registrados. Márcalos en la página Follow Up.")
         # CLIENTES
 elif pagina == "Clientes":
     import urllib.parse
