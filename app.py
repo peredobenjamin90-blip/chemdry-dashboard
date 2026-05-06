@@ -490,6 +490,49 @@ def cargar_finanzas(url):
 if pagina == "Resumen":
     st.title(NOMBRE_APP)
 
+    # ─────────────────────────────
+    # 🔔 BANNER DE RECORDATORIOS
+    # ─────────────────────────────
+    if "meses_recordatorio" not in st.session_state:
+        st.session_state["meses_recordatorio"] = 6
+
+    meses_recordatorio = st.session_state["meses_recordatorio"]
+
+    df_banner = df.copy()
+    df_banner["Fecha"] = pd.to_datetime(df_banner["Fecha"], errors="coerce")
+
+    ultimo_banner = df_banner.groupby("Nombre").agg(
+        Ultima_Visita=("Fecha", "max")
+    ).reset_index()
+    ultimo_banner["Meses_sin_servicio"] = (
+        (datetime.now() - ultimo_banner["Ultima_Visita"]).dt.days / 30
+    ).round(1)
+
+    clientes_pendientes = ultimo_banner[
+        ultimo_banner["Meses_sin_servicio"] >= meses_recordatorio
+    ]
+
+    if not clientes_pendientes.empty:
+        st.warning(
+            f"🔔 **{len(clientes_pendientes)} clientes** llevan {meses_recordatorio}+ meses sin servicio. "
+            f"Ve a **Follow Up** para contactarlos."
+        )
+
+    with st.expander("⚙️ Configurar recordatorio"):
+        nuevo_umbral = st.slider(
+            "Avisar cuando un cliente lleve X meses sin servicio:",
+            1, 24, meses_recordatorio,
+            key="slider_recordatorio"
+        )
+        if nuevo_umbral != meses_recordatorio:
+            st.session_state["meses_recordatorio"] = nuevo_umbral
+            st.rerun()
+
+    st.markdown("---")
+
+    # ─────────────────────────────
+    # 📊 MÉTRICAS PRINCIPALES
+    # ─────────────────────────────
     año_resumen = st.selectbox(
         "Año:",
         años_sin_2026,
@@ -509,7 +552,6 @@ if pagina == "Resumen":
     col3.metric("Ticket promedio", f"${ticket_promedio:,.0f}")
     col4.metric("Servicios realizados", f"{total_servicios:,}")
 
-    # 📊 Comparación anual
     if año_resumen > min(años_sin_2026):
         df_ant = df[df["Año"] == año_resumen - 1]
         ventas_ant = df_ant["Monto"].sum()
@@ -517,40 +559,66 @@ if pagina == "Resumen":
         porcentaje = (diferencia / ventas_ant * 100) if ventas_ant > 0 else 0
         color = "green" if diferencia > 0 else "red"
         simbolo = "▲" if diferencia > 0 else "▼"
-
         st.markdown(
-            f"<p style='color:{color}; font-size:16px'>{simbolo} Comparado con {año_resumen-1}: ${abs(diferencia):,.0f} ({porcentaje:+.1f}%)</p>",
+            f"<p style='color:{color}; font-size:16px'>{simbolo} Comparado con {año_resumen-1}: "
+            f"${abs(diferencia):,.0f} ({porcentaje:+.1f}%)</p>",
             unsafe_allow_html=True
         )
 
+    # ─────────────────────────────
+    # 📈 DASHBOARD CONVERSIÓN FOLLOW UP
+    # ─────────────────────────────
+    st.markdown("---")
+    st.markdown("## 📈 Conversión de Follow Up")
+
+    if "followup_resultados" not in st.session_state:
+        st.session_state["followup_resultados"] = []
+
+    resultados = st.session_state["followup_resultados"]
+
+    if resultados:
+        import collections
+        conteo_resultados = collections.Counter(r["resultado"] for r in resultados)
+        total_contactados = len(resultados)
+        agendaron = conteo_resultados.get("Agendó", 0)
+        tasa = (agendaron / total_contactados * 100) if total_contactados > 0 else 0
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total contactados", total_contactados)
+        col2.metric("Agendaron", agendaron)
+        col3.metric("Tasa de conversión", f"{tasa:.1f}%")
+
+        df_res = pd.DataFrame(resultados)
+        conteo_df = df_res["resultado"].value_counts().reset_index()
+        conteo_df.columns = ["Resultado", "Cantidad"]
+        st.bar_chart(conteo_df.set_index("Resultado"))
+    else:
+        st.info("Aún no hay resultados de follow up registrados. Márcalos en la página Follow Up.")
+
+    # ─────────────────────────────
     # 💰 FLUJO DE EFECTIVO
+    # ─────────────────────────────
+    st.markdown("---")
     st.markdown("## 💰 Flujo de efectivo")
 
     finanzas_usuario = USUARIOS[st.session_state["usuario"]].get("finanzas", {})
 
     if finanzas_usuario:
-
         años_finanzas = list(finanzas_usuario.keys())
-
         año_finanzas = st.selectbox(
             "Año financiero",
             años_finanzas,
             index=len(años_finanzas)-1
         )
-
         try:
             ingresos, gastos, utilidad = cargar_finanzas(finanzas_usuario[año_finanzas])
-
             if ingresos is not None:
-
                 col1, col2, col3 = st.columns(3)
                 col1.metric("💰 Ingresos", f"${ingresos:,.0f}")
                 col2.metric("💸 Gastos", f"${gastos:,.0f}")
                 col3.metric("🟢 Utilidad", f"${utilidad:,.0f}")
-
             else:
                 st.warning("No se pudieron leer los datos del sheet")
-
         except Exception as e:
             st.error("Error cargando finanzas")
             st.write(e)
@@ -631,12 +699,15 @@ elif pagina == "Ventas":
         st.dataframe(pd.DataFrame(resumen_meses), use_container_width=True, hide_index=True)
         # CLIENTES
 elif pagina == "Clientes":
+    import urllib.parse
+    import base64
+    import streamlit.components.v1 as components
+
     st.title("Origen de Clientes")
 
     año_origen = st.selectbox("Año:", años_sin_2026)
     df_o = df[df["Año"] == año_origen].copy()
 
-    # 🔥 LIMPIEZA
     df_o["Origen"] = (
         df_o["Origen"]
         .astype(str)
@@ -644,15 +715,12 @@ elif pagina == "Clientes":
         .str.lower()
     )
 
-    # 🔥 NORMALIZAR — desde config
     origenes_config = USUARIOS[st.session_state["usuario"]].get("origenes", {})
     df_o["Origen"] = df_o["Origen"].replace(origenes_config)
     df_o["Origen"] = df_o["Origen"].replace(["", "nan"], "Sin especificar")
 
-    # 🔥 GRÁFICA
     origen = df_o["Origen"].value_counts().reset_index()
     origen.columns = ["Canal", "Clientes"]
-
     st.bar_chart(origen.set_index("Canal"))
     st.dataframe(origen, use_container_width=True)
 
@@ -673,7 +741,6 @@ elif pagina == "Clientes":
     historial = historial.sort_values(by="Total_Gastado", ascending=False)
 
     cliente_buscar = st.text_input("🔍 Buscar cliente", key=f"buscador_historial_{año_origen}")
-
     if cliente_buscar:
         historial = historial[
             historial["Nombre"].str.contains(cliente_buscar, case=False, na=False)
@@ -683,7 +750,6 @@ elif pagina == "Clientes":
 
     st.markdown("### 🏆 Top clientes")
     top_clientes = historial.head(10)
-
     col1, col2 = st.columns(2)
     with col1:
         st.metric("💰 Mejor cliente", top_clientes.iloc[0]["Nombre"] if not top_clientes.empty else "-")
@@ -692,12 +758,10 @@ elif pagina == "Clientes":
             "💵 Mayor gasto",
             f"${top_clientes.iloc[0]['Total_Gastado']:,.0f}" if not top_clientes.empty else "$0"
         )
-
     st.dataframe(historial, use_container_width=True)
 
     # 👤 PERFIL
     st.markdown("### 👤 Perfil del cliente")
-
     clientes_lista = historial["Nombre"].dropna().unique().tolist()
     cliente_sel = st.selectbox("Selecciona un cliente", clientes_lista)
 
@@ -732,7 +796,6 @@ elif pagina == "Clientes":
     df_lost = df.copy()
     df_lost["Fecha"] = pd.to_datetime(df_lost["Fecha"], errors="coerce")
     df_lost["Monto"] = pd.to_numeric(df_lost["Monto"], errors="coerce")
-
     hoy = datetime.now()
 
     ultimo = df_lost.groupby("Nombre").agg(
@@ -740,7 +803,6 @@ elif pagina == "Clientes":
         Total_Gastado=("Monto", "sum"),
         Tel=("Tel", "last")
     ).reset_index()
-
     ultimo["Meses_sin_servicio"] = ((hoy - ultimo["Ultima_Visita"]).dt.days / 30).round(1)
 
     col1, col2 = st.columns(2)
@@ -773,36 +835,83 @@ elif pagina == "Clientes":
     st.markdown("## 🚀 Contacto masivo")
 
     if not perdidos.empty:
-        plantillas = USUARIOS[st.session_state["usuario"]].get("plantillas", {})
+        PLANTILLAS_MASIVAS = {
+            "Recordatorio": "Hola {nombre}, te contactamos de {empresa}. Hace tiempo no realizas un servicio con nosotros. ¿Te gustaría agendar?",
+            "Promoción": "Hola {nombre}, en {empresa} tenemos una promoción especial. ¿Te interesa?",
+            "Seguimiento": "Hola {nombre}, te damos seguimiento desde {empresa}. ¿Cómo fue tu servicio?",
+            "Reactivación": "Hola {nombre}, te extrañamos en {empresa} 😄 ¿Agendamos esta semana?"
+        }
+
         empresa = st.session_state.get("empresa", "")
 
-        if plantillas:
-            plantilla_sel = st.selectbox(
-                "Selecciona plantilla para todos",
-                list(plantillas.keys()),
-                key="plantilla_masiva"
-            )
-            mensaje_base = plantillas[plantilla_sel]
-        else:
-            mensaje_base = "Hola {nombre}, te contactamos de {empresa}"
+        plantilla_sel_masiva = st.selectbox(
+            "Plantilla para todos",
+            list(PLANTILLAS_MASIVAS.keys()),
+            key="plantilla_masiva_clientes"
+        )
+        mensaje_base_masivo = PLANTILLAS_MASIVAS[plantilla_sel_masiva]
 
-        if st.button("💬 Generar mensajes para todos"):
+        urls_perdidos = []
+        for _, row in perdidos.iterrows():
+            tel = str(row["Tel"]).replace("-", "").replace(" ", "")
+            if tel and tel != "nan":
+                tel_completo = "52" + tel
+                mensaje = mensaje_base_masivo.format(nombre=row["Nombre"], empresa=empresa)
+                urls_perdidos.append((
+                    row["Nombre"],
+                    f"https://wa.me/{tel_completo}?text={urllib.parse.quote(mensaje)}"
+                ))
+
+        if urls_perdidos:
             cols = st.columns(3)
-            i = 0
-            for _, row in perdidos.iterrows():
-                tel = str(row["Tel"]).replace("-", "").replace(" ", "")
-                if tel:
-                    tel = "52" + tel
-                    mensaje = mensaje_base.format(nombre=row["Nombre"], empresa=empresa)
-                    url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
-                    with cols[i % 3]:
-                        st.link_button(f"💬 {row['Nombre']}", url)
-                    i += 1
+            for i, (nombre_btn, url_btn) in enumerate(urls_perdidos):
+                with cols[i % 3]:
+                    st.link_button(f"💬 {nombre_btn}", url_btn)
+
+            html_links_cl = ""
+            for nombre_link, url_link in urls_perdidos:
+                html_links_cl += f"""
+                <a href="{url_link}" target="_blank" style="
+                    display:block; background-color:#25D366; color:white;
+                    text-decoration:none; padding:12px 16px; border-radius:8px;
+                    margin-bottom:8px; font-size:15px; font-family:sans-serif;
+                ">💬 {nombre_link}</a>
+                """
+
+            pagina_html_cl = f"""
+            <!DOCTYPE html><html><head><meta charset="utf-8">
+            <title>Contacto masivo</title>
+            <style>
+                body{{font-family:sans-serif;padding:24px;max-width:500px;margin:auto;background:#f9f9f9;}}
+                h2{{color:#128C7E;}}p{{color:#555;margin-bottom:20px;}}
+            </style></head>
+            <body>
+                <h2>📋 {len(urls_perdidos)} clientes a contactar</h2>
+                <p>Haz click en cada nombre para abrir WhatsApp Web.</p>
+                {html_links_cl}
+            </body></html>
+            """
+
+            b64_cl = base64.b64encode(pagina_html_cl.encode("utf-8")).decode("utf-8")
+            components.html(f"""
+            <a href="data:text/html;base64,{b64_cl}" target="_blank" style="
+                display:block; background-color:#128C7E; color:white;
+                text-decoration:none; text-align:center; border-radius:8px;
+                padding:14px 24px; font-size:16px; font-family:sans-serif; margin-top:8px;
+            ">🚀 Abrir panel de contacto masivo ({len(urls_perdidos)} contactos)</a>
+            """, height=65)
 
     # 💬 CONTACTO INDIVIDUAL
     st.markdown("### 💬 Contacto rápido")
 
     if not perdidos.empty:
+        PLANTILLAS_IND = {
+            "Recordatorio": "Hola {nombre}, te contactamos de {empresa}. Hace tiempo no realizas un servicio con nosotros. ¿Te gustaría agendar?",
+            "Promoción": "Hola {nombre}, en {empresa} tenemos una promoción especial. ¿Te interesa?",
+            "Seguimiento": "Hola {nombre}, te damos seguimiento desde {empresa}. ¿Cómo fue tu servicio?",
+            "Reactivación": "Hola {nombre}, te extrañamos en {empresa} 😄 ¿Agendamos esta semana?"
+        }
+
         cliente_sel_contacto = st.selectbox(
             "Selecciona cliente",
             perdidos["Nombre"],
@@ -811,28 +920,27 @@ elif pagina == "Clientes":
 
         cliente_data = perdidos[perdidos["Nombre"] == cliente_sel_contacto].iloc[0]
         tel = str(cliente_data["Tel"]).replace("-", "").replace(" ", "")
-        if tel:
+        if tel and tel != "nan":
             tel = "52" + tel
 
-        PLANTILLAS_MENSAJES = {
-            "Recordatorio": "Hola {nombre}, te contactamos de {empresa}. Hace tiempo no realizas un servicio con nosotros. ¿Te gustaría agendar?",
-            "Promoción": "Hola {nombre}, en {empresa} tenemos una promoción especial. ¿Te interesa?",
-            "Seguimiento": "Hola {nombre}, te damos seguimiento desde {empresa}. ¿Cómo fue tu servicio?",
-            "Reactivación": "Hola {nombre}, te extrañamos en {empresa} 😄 ¿Agendamos esta semana?"
-        }
-
-        plantilla_sel = st.selectbox("Plantilla", list(PLANTILLAS_MENSAJES.keys()))
-        mensaje = PLANTILLAS_MENSAJES[plantilla_sel].format(
+        plantilla_ind_cl = st.selectbox(
+            "Plantilla",
+            list(PLANTILLAS_IND.keys()),
+            key="plantilla_ind_clientes"
+        )
+        mensaje = PLANTILLAS_IND[plantilla_ind_cl].format(
             nombre=cliente_sel_contacto,
             empresa=st.session_state.get("empresa", "tu negocio")
         )
-        mensaje_edit = st.text_area("Mensaje", value=mensaje)
+        mensaje_edit = st.text_area("Mensaje", value=mensaje, key="msg_edit_clientes")
 
-        if tel:
-            url = f"https://wa.me/{tel}?text={mensaje_edit.replace(' ', '%20')}"
-            st.markdown(f"[💬 Abrir WhatsApp]({url})")
+        if tel and tel != "52nan":
+            url = f"https://wa.me/{tel}?text={urllib.parse.quote(mensaje_edit)}"
+            st.link_button("💬 Abrir WhatsApp", url)
         else:
             st.warning("Este cliente no tiene teléfono válido")
+
+    # 🔢 NUMERACIÓN ÚNICA
     st.markdown("---")
     st.markdown("### 🔢 Numeración única de clientes")
     with st.expander("⚠️ Usar solo una vez"):
@@ -1536,6 +1644,9 @@ elif pagina == "Agenda":
                         st.error(f"Error al borrar: {e}")
     # ── COTIZACIONES ──
 elif pagina == "Cotizaciones":
+    import base64
+    import streamlit.components.v1 as components
+
     st.title("Cotizador de Servicios")
 
     cotizador = USUARIOS[st.session_state["usuario"]].get("cotizador", {})
@@ -1582,7 +1693,6 @@ elif pagina == "Cotizaciones":
             cantidad = 1
             label_cantidad = "unidad"
 
-    # PRECIOS POR PAQUETE
     precio_data = {
         "Paquete": PAQUETES,
         "Precio": [f"${PRECIOS[servicio][p] * cantidad:,.0f}" for p in PAQUETES]
@@ -1597,7 +1707,6 @@ elif pagina == "Cotizaciones":
             "Precios": {p: PRECIOS[servicio][p] * cantidad for p in PAQUETES}
         })
 
-    # RESUMEN
     if st.session_state["items_cotizacion"]:
         st.markdown("---")
         st.markdown("### Resumen — todos los paquetes")
@@ -1621,7 +1730,7 @@ elif pagina == "Cotizaciones":
         filas.append(totales)
         st.dataframe(pd.DataFrame(filas), use_container_width=True, hide_index=True)
 
-        # MENSAJE PROFESIONAL
+        # ── MENSAJE PROFESIONAL ──
         st.markdown("### Mensaje para cliente")
 
         nombre_cliente = st.text_input("Nombre del cliente (opcional):")
@@ -1671,6 +1780,160 @@ elif pagina == "Cotizaciones":
             lineas.append(FIRMA)
 
         st.text_area("Copia este mensaje:", "\n".join(lineas), height=400)
+
+        # ── PDF ──
+        st.markdown("### 📄 Descargar cotización")
+
+        nombre_pdf = nombre_cliente if nombre_cliente else "Cliente"
+        fecha_pdf = datetime.now().strftime("%d/%m/%Y")
+        empresa_pdf = st.session_state.get("empresa", "")
+
+        filas_pdf = ""
+        for p in PAQUETES:
+            total_p = sum(i["Precios"][p] for i in st.session_state["items_cotizacion"])
+            descuento = DESCUENTOS.get(p, 0)
+            total_con_descuento = total_p * (1 - descuento / 100)
+            total_final = max(total_con_descuento, MINIMO)
+
+            servicios_html = ""
+            for item in st.session_state["items_cotizacion"]:
+                servicios_html += f"""
+                <tr>
+                    <td style='padding:6px 12px; border-bottom:1px solid #eee;'>
+                        {item['Servicio']} ({item['Cantidad']} {item['Label']})
+                    </td>
+                    <td style='padding:6px 12px; text-align:right; border-bottom:1px solid #eee;'>
+                        ${item['Precios'][p]:,.0f}
+                    </td>
+                </tr>
+                """
+
+            if incluir_purt and PURT_COSTO > 0:
+                servicios_html += f"""
+                <tr>
+                    <td style='padding:6px 12px; border-bottom:1px solid #eee;'>PURT</td>
+                    <td style='padding:6px 12px; text-align:right; border-bottom:1px solid #eee;'>
+                        ${PURT_COSTO:,.0f}
+                    </td>
+                </tr>
+                """
+
+            if descuento > 0:
+                servicios_html += f"""
+                <tr>
+                    <td style='padding:6px 12px; border-bottom:1px solid #eee; color:#888;'>
+                        Descuento {descuento}%
+                    </td>
+                    <td style='padding:6px 12px; text-align:right; border-bottom:1px solid #eee; color:#888;'>
+                        -${total_p * descuento / 100:,.0f}
+                    </td>
+                </tr>
+                """
+
+            desc_paquete_html = f"<p style='color:#555; font-size:13px; margin:4px 0 8px 0;'>{DESC_PAQUETES[p]}</p>" if p in DESC_PAQUETES else ""
+
+            filas_pdf += f"""
+            <div style="margin-bottom:24px; border:1px solid #ddd; border-radius:8px; overflow:hidden;">
+                <div style="background:#2B5BAA; color:white; padding:10px 16px; font-weight:bold; font-size:15px;">
+                    Paquete {p}
+                </div>
+                <div style="padding:8px 12px;">
+                    {desc_paquete_html}
+                </div>
+                <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                    {servicios_html}
+                    <tr style="background:#f0f4ff;">
+                        <td style="padding:10px 12px; font-weight:bold;">TOTAL</td>
+                        <td style="padding:10px 12px; text-align:right; font-weight:bold; font-size:16px;">
+                            ${total_final:,.0f}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            """
+
+        intro_html = f"<p style='margin-bottom:16px;'>{INTRO}</p>" if INTRO else ""
+        purt_html = f"<p style='margin-bottom:16px; color:#555;'>{PURT_DESC}</p>" if (incluir_purt and PURT_DESC) else ""
+        cierre_html = f"<p style='margin-top:8px;'>{CIERRE}</p>" if CIERRE else ""
+        firma_html = f"<p style='margin-top:4px; color:#555;'>{FIRMA}</p>" if FIRMA else ""
+
+        html_pdf = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Cotización — {nombre_pdf}</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    padding: 48px;
+                    max-width: 680px;
+                    margin: auto;
+                    color: #333;
+                    font-size: 14px;
+                }}
+                h1 {{ color: #2B5BAA; margin-bottom: 4px; font-size: 28px; }}
+                .meta {{ color: #666; font-size: 13px; margin-bottom: 24px; line-height: 1.8; }}
+                .divider {{ border: none; border-top: 1px solid #eee; margin: 24px 0; }}
+                .footer {{ margin-top: 40px; font-size: 13px; color: #888;
+                           border-top: 1px solid #eee; padding-top: 16px; }}
+                @media print {{
+                    body {{ padding: 24px; }}
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Cotización de servicios</h1>
+            <div class="meta">
+                <strong>Para:</strong> {nombre_pdf}<br>
+                <strong>De:</strong> {empresa_pdf}<br>
+                <strong>Fecha:</strong> {fecha_pdf}
+            </div>
+
+            <hr class="divider">
+
+            {intro_html}
+            {purt_html}
+
+            <p style="margin-bottom:20px;">
+                El servicio de acuerdo a su solicitud tiene una inversión de:
+            </p>
+
+            {filas_pdf}
+
+            <div class="footer">
+                {cierre_html}
+                {firma_html}
+            </div>
+        </body>
+        </html>
+        """
+
+        b64_pdf = base64.b64encode(html_pdf.encode("utf-8")).decode("utf-8")
+        nombre_archivo = f"cotizacion_{nombre_pdf.replace(' ', '_')}_{datetime.now().strftime('%d%m%Y')}.html"
+
+        components.html(f"""
+        <a href="data:text/html;base64,{b64_pdf}"
+           download="{nombre_archivo}"
+           style="
+               display:block;
+               background-color:#2B5BAA;
+               color:white;
+               text-decoration:none;
+               text-align:center;
+               border-radius:8px;
+               padding:14px 24px;
+               font-size:16px;
+               font-family:Arial, sans-serif;
+               margin-top:8px;
+           ">
+            📄 Descargar cotización
+        </a>
+        """, height=65)
+
+        st.caption("Se descarga como archivo HTML. Ábrelo en el navegador y usa Cmd+P / Ctrl+P → Guardar como PDF.")
+
+        st.markdown("---")
 
         if st.button("Limpiar cotización", use_container_width=True):
             st.session_state["items_cotizacion"] = []
