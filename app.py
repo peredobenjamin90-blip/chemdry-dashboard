@@ -66,25 +66,30 @@ def get_gspread_client():
     return gspread.authorize(creds)
 import time
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)  # 10 minutos en vez de 5
 def cargar_datos(sheet_ids):
-    client = get_gspread_client()
-    dfs = []
+    try:
+        client = get_gspread_client()
+    except Exception as e:
+        return pd.DataFrame(), [str(e)]
 
+    dfs = []
+    errores = []
     columnas_base = [
         "Fecha", "Nombre", "Tel", "Dirección",
         "Origen", "Monto", "Servicio",
         "Comentarios con llamada posterior a venta"
     ]
 
-    for año, sheet_id in sheet_ids.items():
+    sheet_items = list(sheet_ids.items())
 
-        # 🔥 SI NO HAY SHEET → CREA DATA VACÍA
+    for idx, (año, sheet_id) in enumerate(sheet_items):
         if not sheet_id:
-            df_vacio = pd.DataFrame(columns=columnas_base)
-            df_vacio["Año"] = año
-            dfs.append(df_vacio)
             continue
+
+        # Delay escalonado entre sheets para no saturar la API
+        if idx > 0:
+            time.sleep(2)
 
         for intento in range(3):
             try:
@@ -92,29 +97,37 @@ def cargar_datos(sheet_ids):
                 worksheet = sh.get_worksheet(0)
                 data = worksheet.get_all_records()
                 df = pd.DataFrame(data)
-
                 if df.empty:
                     df = pd.DataFrame(columns=columnas_base)
-
                 df["Año"] = año
                 dfs.append(df)
-
-                time.sleep(1)
-                break
+                break  # éxito, salir del retry loop
 
             except Exception as e:
-                if intento < 2:
-                    time.sleep(2)
-                else:
-                    # 🔥 SI FALLA → TAMBIÉN CREA VACÍO
-                    df_vacio = pd.DataFrame(columns=columnas_base)
-                    df_vacio["Año"] = año
-                    dfs.append(df_vacio)
+                error_str = str(e)
+                errores.append(f"Año {año} intento {intento}: {error_str}")
+
+                if "429" in error_str:
+                    # Rate limit — esperar más tiempo entre reintentos
+                    wait = (intento + 1) * 10  # 10s, 20s, 30s
+                    time.sleep(wait)
+                elif intento < 2:
+                    time.sleep(3)
 
     if not dfs:
-        return pd.DataFrame(columns=columnas_base + ["Año"])
+        return pd.DataFrame(columns=columnas_base + ["Año"]), errores
+    return pd.concat(dfs, ignore_index=True), errores
+resultado = cargar_datos(st.session_state.get("SHEET_IDS", {}))
+df = resultado[0]
+errores_carga = resultado[1]
 
-    return pd.concat(dfs, ignore_index=True)
+# Solo mostrar errores que no sean rate limit resuelto
+errores_graves = [e for e in errores_carga if "429" not in e or df.empty]
+if errores_graves:
+    for e in errores_graves:
+        st.error(e)
+elif errores_carga and not df.empty:
+    st.caption("⚠️ Algunos sheets tardaron en cargar pero los datos están disponibles.")
 def asignar_ids_clientes():
     import unicodedata
     import json
