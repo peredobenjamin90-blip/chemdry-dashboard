@@ -1436,6 +1436,7 @@ elif pagina == "Chat":
     # AGENDA
 elif pagina == "Agenda":
     st.title("📅 Agenda de Servicios")
+    import urllib.parse
 
     def parsear_fechas(serie):
         resultado = pd.to_datetime(serie, errors="coerce", format="%m/%d/%Y")
@@ -1451,20 +1452,20 @@ elif pagina == "Agenda":
     plantillas = USUARIOS[st.session_state["usuario"]].get("plantillas", {})
     empresa = st.session_state.get("empresa", "")
 
+    # ─────────────────────────────
     # 📅 SELECCIÓN DE FECHA
+    # ─────────────────────────────
     fecha_sel = st.date_input("Selecciona una fecha", datetime.now(), key="agenda_fecha_1")
     df_dia = df_a[df_a["Fecha"].dt.date == fecha_sel]
 
-    # 📊 MÉTRICAS DEL DÍA
     total_dia = df_dia["Monto"].sum()
     col1, col2 = st.columns(2)
     col1.metric("Servicios ese día", len(df_dia))
     col2.metric("Ingresos del día", f"${total_dia:,.0f}")
     st.markdown("---")
 
-    # 📋 SERVICIOS DEL DÍA
     if df_dia.empty:
-        st.info("No hay servicios agendados")
+        st.info("No hay servicios agendados para este día.")
     else:
         for _, row in df_dia.iterrows():
             with st.container():
@@ -1476,17 +1477,19 @@ elif pagina == "Agenda":
                 **💰 Monto:** ${row.get('Monto',0):,.0f}
                 """)
                 tel = str(row.get("Tel", "")).replace("-", "").replace(" ", "")
-                if tel:
-                    tel = "52" + tel
+                if tel and tel != "nan":
+                    tel_completo = "52" + tel
                     mensaje_template = plantillas.get("confirmacion", "Hola {nombre}")
                     mensaje = mensaje_template.format(nombre=row.get("Nombre", ""), empresa=empresa)
-                    url = f"https://wa.me/{tel}?text={mensaje.replace(' ', '%20')}"
+                    url = f"https://wa.me/{tel_completo}?text={urllib.parse.quote(mensaje)}"
                     st.markdown(f"[💬 Enviar WhatsApp]({url})")
                 else:
                     st.warning("Cliente sin teléfono")
                 st.markdown("---")
 
-    # ➕ AGENDAR SERVICIO
+    # ─────────────────────────────
+    # ➕ AGENDAR NUEVO SERVICIO
+    # ─────────────────────────────
     st.markdown("### ➕ Agendar nuevo servicio")
 
     clientes_info = (
@@ -1525,68 +1528,77 @@ elif pagina == "Agenda":
         submitted = st.form_submit_button("Agendar")
 
         if submitted:
-            try:
-                client = get_gspread_client()
-                sheet_id = st.session_state["SHEET_IDS"][fecha.year]
-                sh = client.open_by_key(sheet_id)
-                worksheet = sh.get_worksheet(0)
+            if not nombre.strip():
+                st.error("El nombre del cliente es obligatorio.")
+            elif fecha.year not in st.session_state.get("SHEET_IDS", {}):
+                st.error(f"No hay sheet configurado para el año {fecha.year}.")
+            else:
+                try:
+                    client = get_gspread_client()
+                    sheet_id = st.session_state["SHEET_IDS"][fecha.year]
+                    sh = client.open_by_key(sheet_id)
+                    worksheet = sh.get_worksheet(0)
 
-                # Calcular siguiente folio desde columna B
-                col_b = worksheet.col_values(2)
-                ultimo_folio = 0
-                for v in col_b[1:]:
-                    try:
-                        num = int(str(v).strip().split("/")[0])
-                        if num < 10000:
-                            ultimo_folio = max(ultimo_folio, num)
-                    except:
-                        continue
+                    col_b = worksheet.col_values(2)
+                    ultimo_folio = 0
+                    for v in col_b[1:]:
+                        try:
+                            num = int(str(v).strip().split("/")[0])
+                            if num < 10000:
+                                ultimo_folio = max(ultimo_folio, num)
+                        except:
+                            continue
 
-                siguiente_folio = ultimo_folio + 1
-                folio_interno = f"{siguiente_folio}/{str(fecha.year)[-2:]}"
+                    siguiente_folio = ultimo_folio + 1
+                    folio_interno = f"{siguiente_folio}/{str(fecha.year)[-2:]}"
 
-                nueva_fila = [
-                    siguiente_folio,
-                    folio_interno,
-                    fecha.strftime("%m/%d/%Y"),
-                    nombre, telefono, direccion,
-                    "Agenda", monto, servicio,
-                    "", "", "", ""
-                ]
+                    nueva_fila = [
+                        siguiente_folio,
+                        folio_interno,
+                        fecha.strftime("%m/%d/%Y"),
+                        nombre, telefono, direccion,
+                        "Agenda", monto, servicio,
+                        "", "", "", ""
+                    ]
 
-                # Buscar primera fila vacía por columna C (Fecha)
-                col_c = worksheet.col_values(3)
-                datos_col_c = col_c[1:]
-                primera_vacia = None
-                for i, v in enumerate(datos_col_c):
-                    if str(v).strip() == "":
-                        primera_vacia = i + 2
-                        break
+                    col_c = worksheet.col_values(3)
+                    datos_col_c = col_c[1:]
+                    primera_vacia = None
+                    for i, v in enumerate(datos_col_c):
+                        if str(v).strip() == "":
+                            primera_vacia = i + 2
+                            break
+                    if primera_vacia is None:
+                        primera_vacia = len(datos_col_c) + 2
 
-                if primera_vacia is None:
-                    primera_vacia = len(datos_col_c) + 2
+                    worksheet.insert_row(nueva_fila, primera_vacia)
 
-                worksheet.insert_row(nueva_fila, primera_vacia)
+                    st.success(f"✅ Servicio agendado para {nombre} el {fecha.strftime('%d/%m/%Y')}")
+                    st.cache_data.clear()
+                    st.cache_resource.clear()
+                    # Limpiar evento seleccionado para no confundir
+                    if "evento_seleccionado" in st.session_state:
+                        del st.session_state["evento_seleccionado"]
+                    import time as t
+                    t.sleep(2)
+                    st.rerun()
 
-                st.success("✅ Servicio agendado correctamente")
-                st.cache_data.clear()
-                st.cache_resource.clear()
-                st.session_state["agenda_refresh"] = st.session_state.get("agenda_refresh", 0) + 1
-                import time as t
-                t.sleep(2)
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"Error al agendar: {e}")
+                except Exception as e:
+                    st.error(f"Error al agendar: {e}")
 
     st.markdown("---")
 
+    # ─────────────────────────────
     # 📅 CALENDARIO
+    # ─────────────────────────────
     from streamlit_calendar import calendar
 
     st.markdown("### 📅 Calendario de servicios")
 
-    def cargar_datos_calendario(sheet_ids):
+    @st.cache_data(ttl=300)
+    def cargar_datos_calendario(sheet_ids_tuple):
+        # Recibe tuple para que sea hasheable por cache
+        sheet_ids = dict(sheet_ids_tuple)
         client = get_gspread_client()
         dfs = []
         columnas_base = [
@@ -1606,14 +1618,17 @@ elif pagina == "Agenda":
                     df_tmp = pd.DataFrame(columns=columnas_base)
                 df_tmp["Año"] = año
                 dfs.append(df_tmp)
-            except:
+                time.sleep(1)
+            except Exception:
                 continue
         if not dfs:
             return pd.DataFrame(columns=columnas_base + ["Año"])
         return pd.concat(dfs, ignore_index=True)
 
+    sheet_ids_tuple = tuple(sorted(st.session_state.get("SHEET_IDS", {}).items()))
+
     with st.spinner("Cargando calendario..."):
-        df_cal_raw = cargar_datos_calendario(st.session_state.get("SHEET_IDS", {}))
+        df_cal_raw = cargar_datos_calendario(sheet_ids_tuple)
 
     df_cal_raw.columns = df_cal_raw.columns.str.strip()
     df_cal_raw["Fecha"] = parsear_fechas(df_cal_raw["Fecha"])
@@ -1645,60 +1660,144 @@ elif pagina == "Agenda":
         "height": 600,
     }
 
-    resultado = calendar(events=eventos, options=opciones_calendario, key="calendario_principal")
+    resultado_cal = calendar(
+        events=eventos,
+        options=opciones_calendario,
+        key=f"calendario_principal_{st.session_state.get('agenda_refresh', 0)}"
+    )
 
-    # 📋 DETALLE AL PICAR EVENTO
-    if resultado and resultado.get("eventClick"):
-        evento_click = resultado["eventClick"]["event"]
+    # ── Guardar evento clickeado en session_state para que persista ──
+    if resultado_cal and resultado_cal.get("eventClick"):
+        evento_click = resultado_cal["eventClick"]["event"]
         folio_click = evento_click.get("extendedProps", {}).get("folio")
         año_click = evento_click.get("extendedProps", {}).get("año")
-
         if folio_click and año_click:
-            df_evento = df_cal[
-                (df_cal["Folio sistema"].astype(str) == str(folio_click)) &
-                (df_cal["Año"] == año_click)
-            ]
+            st.session_state["evento_seleccionado"] = {
+                "folio": folio_click,
+                "año": año_click
+            }
 
-            if not df_evento.empty:
-                row = df_evento.iloc[0]
+    # ─────────────────────────────
+    # 📋 DETALLE DEL EVENTO — persiste entre reruns
+    # ─────────────────────────────
+    if "evento_seleccionado" in st.session_state:
+        ev = st.session_state["evento_seleccionado"]
+        folio_click = ev["folio"]
+        año_click = ev["año"]
 
-                st.markdown("---")
-                st.markdown("### 📋 Detalle del servicio")
+        df_evento = df_cal[
+            (df_cal["Folio sistema"].astype(str) == str(folio_click)) &
+            (df_cal["Año"] == año_click)
+        ]
+
+        if not df_evento.empty:
+            row = df_evento.iloc[0]
+
+            st.markdown("---")
+            st.markdown("### 📋 Detalle del servicio")
+
+            col1, col2 = st.columns([3, 1])
+            with col1:
                 st.markdown(f"""
                 **👤 Cliente:** {row.get('Nombre','')}  
                 **📞 Tel:** {row.get('Tel','')}  
                 **📍 Dirección:** {row.get('Dirección','')}  
                 **🧼 Servicio:** {row.get('Servicio','')}  
-                **💰 Monto:** ${row.get('Monto',0):,.0f}  
+                **📅 Fecha:** {row['Fecha'].strftime('%d/%m/%Y')}  
+                **💰 Monto:** ${row.get('Monto', 0):,.0f}  
                 **💬 Comentarios:** {row.get('Comentarios con llamada posterior a venta','')}
                 """)
+            with col2:
+                if st.button("✖ Cerrar detalle", use_container_width=True):
+                    del st.session_state["evento_seleccionado"]
+                    st.rerun()
 
-                tel_ev = str(row.get("Tel", "")).replace("-", "").replace(" ", "")
-                if tel_ev:
-                    tel_ev = "52" + tel_ev
-                    mensaje_template = plantillas.get("confirmacion", "Hola {nombre}")
-                    mensaje = mensaje_template.format(nombre=row.get("Nombre", ""), empresa=empresa)
-                    url = f"https://wa.me/{tel_ev}?text={mensaje.replace(' ', '%20')}"
-                    st.markdown(f"[💬 Enviar WhatsApp]({url})")
+            tel_ev = str(row.get("Tel", "")).replace("-", "").replace(" ", "")
+            if tel_ev and tel_ev != "nan":
+                tel_ev = "52" + tel_ev
+                mensaje_template = plantillas.get("confirmacion", "Hola {nombre}")
+                mensaje = mensaje_template.format(nombre=row.get("Nombre", ""), empresa=empresa)
+                url = f"https://wa.me/{tel_ev}?text={urllib.parse.quote(mensaje)}"
+                st.markdown(f"[💬 Enviar WhatsApp]({url})")
 
-                if st.button("🗑️ Borrar este servicio", key="borrar_evento"):
-                    try:
-                        client = get_gspread_client()
-                        sheet_id = st.session_state["SHEET_IDS"][row["Fecha"].year]
-                        sh = client.open_by_key(sheet_id)
-                        worksheet = sh.get_worksheet(0)
+            # ── EDITAR FECHA ──
+            st.markdown("#### ✏️ Corregir fecha del servicio")
+            with st.form("editar_fecha_form"):
+                nueva_fecha = st.date_input(
+                    "Nueva fecha:",
+                    value=row["Fecha"].date()
+                )
+                confirmar_edicion = st.form_submit_button("📅 Cambiar fecha", use_container_width=True)
 
-                        celdas = worksheet.findall(str(folio_click))
-                        if celdas:
-                            worksheet.delete_rows(celdas[0].row)
-                            st.success("✅ Servicio eliminado")
-                            st.cache_data.clear()
-                            st.cache_resource.clear()
-                            st.rerun()
-                        else:
-                            st.warning("No se encontró el servicio en el sheet")
-                    except Exception as e:
-                        st.error(f"Error al borrar: {e}")
+                if confirmar_edicion:
+                    if nueva_fecha == row["Fecha"].date():
+                        st.warning("La fecha es la misma, no hay nada que cambiar.")
+                    else:
+                        try:
+                            client = get_gspread_client()
+                            sheet_id = st.session_state["SHEET_IDS"][año_click]
+                            sh = client.open_by_key(sheet_id)
+                            worksheet = sh.get_worksheet(0)
+
+                            celdas = worksheet.findall(str(folio_click))
+                            if celdas:
+                                fila_num = celdas[0].row
+                                # Columna C = Fecha (índice 3)
+                                worksheet.update_cell(fila_num, 3, nueva_fecha.strftime("%m/%d/%Y"))
+                                st.success(f"✅ Fecha cambiada a {nueva_fecha.strftime('%d/%m/%Y')}")
+                                st.cache_data.clear()
+                                del st.session_state["evento_seleccionado"]
+                                st.session_state["agenda_refresh"] = st.session_state.get("agenda_refresh", 0) + 1
+                                import time as t
+                                t.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("No se encontró el servicio en el sheet. Verifica el folio.")
+                        except KeyError:
+                            st.error(f"No hay sheet configurado para el año {año_click}.")
+                        except Exception as e:
+                            st.error(f"Error al cambiar fecha: {e}")
+
+            # ── BORRAR SERVICIO ──
+            st.markdown("#### 🗑️ Eliminar servicio")
+            with st.form("borrar_form"):
+                st.warning("Esta acción no se puede deshacer.")
+                confirmar_borrado = st.checkbox("Confirmo que quiero eliminar este servicio")
+                borrar_btn = st.form_submit_button("🗑️ Eliminar", use_container_width=True)
+
+                if borrar_btn:
+                    if not confirmar_borrado:
+                        st.error("Marca la casilla de confirmación antes de eliminar.")
+                    else:
+                        try:
+                            client = get_gspread_client()
+                            sheet_id = st.session_state["SHEET_IDS"][año_click]
+                            sh = client.open_by_key(sheet_id)
+                            worksheet = sh.get_worksheet(0)
+
+                            celdas = worksheet.findall(str(folio_click))
+                            if celdas:
+                                worksheet.delete_rows(celdas[0].row)
+                                st.success("✅ Servicio eliminado correctamente.")
+                                st.cache_data.clear()
+                                st.cache_resource.clear()
+                                del st.session_state["evento_seleccionado"]
+                                st.session_state["agenda_refresh"] = st.session_state.get("agenda_refresh", 0) + 1
+                                import time as t
+                                t.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("No se encontró el servicio en el sheet.")
+                        except KeyError:
+                            st.error(f"No hay sheet configurado para el año {año_click}.")
+                        except Exception as e:
+                            st.error(f"Error al eliminar: {e}")
+        else:
+            # El folio no se encontró — limpiar para no dejar estado sucio
+            st.warning("No se encontró el servicio seleccionado. Puede que ya haya sido eliminado.")
+            if st.button("Limpiar selección"):
+                del st.session_state["evento_seleccionado"]
+                st.rerun()
     # ── COTIZACIONES ──
 elif pagina == "Cotizaciones":
     import base64
