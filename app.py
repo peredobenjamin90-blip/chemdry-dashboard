@@ -7,6 +7,11 @@ from config import USUARIOS
 import uuid
 import plotly.express as px
 import os
+from supabase_client import supabase
+
+data = supabase.table("usuarios").select("*").execute()
+
+st.write(data.data)
 
 NOMBRE_APP = "CRM Dashboard"
 ICONO_APP = "🧹"
