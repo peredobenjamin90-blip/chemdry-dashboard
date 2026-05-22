@@ -66,7 +66,6 @@ def get_gspread_client():
     return gspread.authorize(creds)
 import time
 
-@st.cache_data(ttl=600)  # 10 minutos en vez de 5
 @st.cache_data(ttl=600)
 def cargar_datos(sheet_ids):
     try:
@@ -80,12 +79,6 @@ def cargar_datos(sheet_ids):
         "Fecha", "Nombre", "Tel", "Dirección",
         "Origen", "Monto", "Servicio",
         "Comentarios con llamada posterior a venta"
-    ]
-    columnas_esperadas = [
-        "Folio sistema", "Folio interno", "Fecha", "Nombre", "Tel",
-        "Dirección", "Origen", "Monto", "Servicio",
-        "Comentarios con llamada posterior a venta",
-        "90 dias", "6 meses", "1 año"
     ]
 
     sheet_items = list(sheet_ids.items())
@@ -101,13 +94,31 @@ def cargar_datos(sheet_ids):
             try:
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
-                data = worksheet.get_all_records(
-                    expected_headers=columnas_esperadas,
-                    default_blank=""
-                )
-                df = pd.DataFrame(data)
-                if df.empty:
+
+                # Leer todo como valores crudos sin validar headers
+                valores = worksheet.get_all_values()
+
+                if not valores or len(valores) < 2:
                     df = pd.DataFrame(columns=columnas_base)
+                else:
+                    headers = valores[0]
+                    filas = valores[1:]
+                    # Normalizar headers duplicados o vacíos
+                    headers_limpios = []
+                    conteo = {}
+                    for h in headers:
+                        h = h.strip()
+                        if h == "":
+                            h = "Col_vacia"
+                        if h in conteo:
+                            conteo[h] += 1
+                            h = f"{h}_{conteo[h]}"
+                        else:
+                            conteo[h] = 0
+                        headers_limpios.append(h)
+
+                    df = pd.DataFrame(filas, columns=headers_limpios)
+
                 df["Año"] = año
                 dfs.append(df)
                 break
