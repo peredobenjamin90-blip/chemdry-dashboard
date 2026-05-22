@@ -67,6 +67,7 @@ def get_gspread_client():
 import time
 
 @st.cache_data(ttl=600)  # 10 minutos en vez de 5
+@st.cache_data(ttl=600)
 def cargar_datos(sheet_ids):
     try:
         client = get_gspread_client()
@@ -80,6 +81,12 @@ def cargar_datos(sheet_ids):
         "Origen", "Monto", "Servicio",
         "Comentarios con llamada posterior a venta"
     ]
+    columnas_esperadas = [
+        "Folio sistema", "Folio interno", "Fecha", "Nombre", "Tel",
+        "Dirección", "Origen", "Monto", "Servicio",
+        "Comentarios con llamada posterior a venta",
+        "90 dias", "6 meses", "1 año"
+    ]
 
     sheet_items = list(sheet_ids.items())
 
@@ -87,7 +94,6 @@ def cargar_datos(sheet_ids):
         if not sheet_id:
             continue
 
-        # Delay escalonado entre sheets para no saturar la API
         if idx > 0:
             time.sleep(2)
 
@@ -95,21 +101,23 @@ def cargar_datos(sheet_ids):
             try:
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
-                data = worksheet.get_all_records()
+                data = worksheet.get_all_records(
+                    expected_headers=columnas_esperadas,
+                    default_blank=""
+                )
                 df = pd.DataFrame(data)
                 if df.empty:
                     df = pd.DataFrame(columns=columnas_base)
                 df["Año"] = año
                 dfs.append(df)
-                break  # éxito, salir del retry loop
+                break
 
             except Exception as e:
                 error_str = str(e)
                 errores.append(f"Año {año} intento {intento}: {error_str}")
 
                 if "429" in error_str:
-                    # Rate limit — esperar más tiempo entre reintentos
-                    wait = (intento + 1) * 10  # 10s, 20s, 30s
+                    wait = (intento + 1) * 10
                     time.sleep(wait)
                 elif intento < 2:
                     time.sleep(3)
