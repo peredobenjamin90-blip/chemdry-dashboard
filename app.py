@@ -8,11 +8,6 @@ import uuid
 import plotly.express as px
 import os
 
-
-data = supabase.table("usuarios").select("*").execute()
-
-st.write(data.data)
-
 NOMBRE_APP = "CRM Dashboard"
 ICONO_APP = "🧹"
 
