@@ -95,30 +95,32 @@ def cargar_datos(sheet_ids):
                 sh = client.open_by_key(sheet_id)
                 worksheet = sh.get_worksheet(0)
 
-                # Leer todo como valores crudos sin validar headers
                 valores = worksheet.get_all_values()
 
                 if not valores or len(valores) < 2:
                     df = pd.DataFrame(columns=columnas_base)
-                else:
-                    headers = valores[0]
-                    filas = valores[1:]
-                    # Normalizar headers duplicados o vacíos
-                    headers_limpios = []
-                    conteo = {}
-                    for h in headers:
-                        h = h.strip()
-                        if h == "":
-                            h = "Col_vacia"
-                        if h in conteo:
-                            conteo[h] += 1
-                            h = f"{h}_{conteo[h]}"
-                        else:
-                            conteo[h] = 0
-                        headers_limpios.append(h)
+                    df["Año"] = año
+                    dfs.append(df)
+                    break
 
-                    df = pd.DataFrame(filas, columns=headers_limpios)
+                headers = valores[0]
+                filas = valores[1:]
 
+                # Limpiar headers duplicados, vacíos o con solo espacios
+                headers_limpios = []
+                conteo = {}
+                for h in headers:
+                    h = h.strip()
+                    if h == "":
+                        h = "Col_vacia"
+                    if h in conteo:
+                        conteo[h] += 1
+                        h = f"{h}_{conteo[h]}"
+                    else:
+                        conteo[h] = 0
+                    headers_limpios.append(h)
+
+                df = pd.DataFrame(filas, columns=headers_limpios)
                 df["Año"] = año
                 dfs.append(df)
                 break
