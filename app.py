@@ -139,6 +139,7 @@ def cargar_datos(sheet_ids):
 resultado = cargar_datos(st.session_state.get("SHEET_IDS", {}))
 df = resultado[0]
 errores_carga = resultado[1]
+st.caption(f"Columnas detectadas: {list(df.columns[:10])}")
 
 # Solo mostrar errores que no sean rate limit resuelto
 errores_graves = [e for e in errores_carga if "429" not in e or df.empty]
