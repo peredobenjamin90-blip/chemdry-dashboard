@@ -7,7 +7,7 @@ from config import USUARIOS
 import uuid
 import plotly.express as px
 import os
-from supabase_client import supabase
+
 
 data = supabase.table("usuarios").select("*").execute()
 
