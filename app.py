@@ -149,17 +149,19 @@ elif errores_carga and not df.empty:
     st.caption("⚠️ Algunos sheets tardaron en cargar pero los datos están disponibles.")
 def asignar_ids_clientes():
     import unicodedata
-    import json
 
     client = get_gspread_client()
     sheet_ids = st.session_state.get("SHEET_IDS", {})
 
-    def normalizar(nombre):
+    def normalizar(nombre, tel=""):
         nombre = str(nombre).strip().lower()
         nombre = unicodedata.normalize("NFKD", nombre)
         nombre = "".join(c for c in nombre if not unicodedata.combining(c))
         nombre = " ".join(nombre.split())
-        return nombre
+        # Incluir los últimos 4 dígitos del tel para distinguir homónimos
+        tel = str(tel).strip().replace("-", "").replace(" ", "")
+        sufijo = tel[-4:] if len(tel) >= 4 else tel
+        return f"{nombre}_{sufijo}"
 
     datos_sheets = {}
     for año, sheet_id in sheet_ids.items():
@@ -168,8 +170,35 @@ def asignar_ids_clientes():
         try:
             sh = client.open_by_key(sheet_id)
             ws = sh.get_worksheet(0)
-            col_nombres = ws.col_values(4)  # col D = Nombre (antes de insertar)
-            datos_sheets[año] = {"ws": ws, "sh": sh, "nombres": col_nombres}
+
+            # ── Verificar si ya existe columna ID Cliente ──
+            headers = ws.row_values(1)
+            if "ID Cliente" in headers:
+                st.info(f"Sheet {año} ya tiene columna ID Cliente — se actualizarán los IDs sin insertar columna nueva.")
+                col_id = headers.index("ID Cliente") + 1  # base 1
+                col_nombre = headers.index("Nombre") + 1 if "Nombre" in headers else None
+                col_tel = headers.index("Tel") + 1 if "Tel" in headers else None
+                datos_sheets[año] = {
+                    "ws": ws, "sh": sh,
+                    "ya_tiene_columna": True,
+                    "col_id": col_id,
+                    "col_nombre": col_nombre,
+                    "col_tel": col_tel,
+                    "total_filas": len(ws.col_values(col_nombre)) if col_nombre else 0
+                }
+            else:
+                col_nombre = headers.index("Nombre") + 1 if "Nombre" in headers else 4
+                col_tel = headers.index("Tel") + 1 if "Tel" in headers else 5
+                col_nombres = ws.col_values(col_nombre)
+                col_tels = ws.col_values(col_tel)
+                datos_sheets[año] = {
+                    "ws": ws, "sh": sh,
+                    "ya_tiene_columna": False,
+                    "col_nombre": col_nombre,
+                    "col_tel": col_tel,
+                    "nombres": col_nombres,
+                    "tels": col_tels
+                }
         except Exception as e:
             st.warning(f"No se pudo leer el sheet {año}: {e}")
 
@@ -177,56 +206,86 @@ def asignar_ids_clientes():
         st.error("No hay sheets disponibles.")
         return
 
+    # ── Construir mapa nombre+tel → ID ──
     mapa_id = {}
     contador = 1
-    for año, data in datos_sheets.items():
-        for nombre in data["nombres"][1:]:
-            if not nombre or str(nombre).strip() in ["", "nan"]:
-                continue
-            norm = normalizar(nombre)
-            if norm not in mapa_id:
-                mapa_id[norm] = contador
-                contador += 1
-
-    st.info(f"Se identificaron {contador - 1} clientes únicos.")
 
     for año, data in datos_sheets.items():
         ws = data["ws"]
-        sh = data["sh"]
-        nombres = data["nombres"]
-        try:
-            sheet_tab_id = ws.id
-            sh.batch_update({"requests": [{
-                "insertDimension": {
-                    "range": {
-                        "sheetId": sheet_tab_id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 3,
-                        "endIndex": 4
-                    },
-                    "inheritFromBefore": False
-                }
-            }]})
+        if data["ya_tiene_columna"]:
+            col_nombre = data["col_nombre"]
+            col_tel = data["col_tel"]
+            nombres = ws.col_values(col_nombre)[1:] if col_nombre else []
+            tels = ws.col_values(col_tel)[1:] if col_tel else []
+        else:
+            nombres = data["nombres"][1:]
+            tels = data["tels"][1:] if len(data.get("tels", [])) > 1 else [""] * len(nombres)
 
-            ws.update_cell(1, 4, "ID Cliente")
+        for i, nombre in enumerate(nombres):
+            if not nombre or str(nombre).strip() in ["", "nan"]:
+                continue
+            tel = tels[i] if i < len(tels) else ""
+            clave = normalizar(nombre, tel)
+            if clave not in mapa_id:
+                mapa_id[clave] = contador
+                contador += 1
+
+    st.info(f"Se identificaron {contador - 1} clientes únicos (por nombre + teléfono).")
+
+    # ── Insertar columna o actualizar IDs ──
+    for año, data in datos_sheets.items():
+        ws = data["ws"]
+        sh = data["sh"]
+
+        try:
+            if not data["ya_tiene_columna"]:
+                # Insertar columna D nueva
+                sheet_tab_id = ws.id
+                sh.batch_update({"requests": [{
+                    "insertDimension": {
+                        "range": {
+                            "sheetId": sheet_tab_id,
+                            "dimension": "COLUMNS",
+                            "startIndex": 3,
+                            "endIndex": 4
+                        },
+                        "inheritFromBefore": False
+                    }
+                }]})
+                ws.update_cell(1, 4, "ID Cliente")
+                col_id = 4
+                col_nombre = data["col_nombre"] + 1  # se desplazó
+                col_tel = data["col_tel"] + 1
+            else:
+                col_id = data["col_id"]
+                col_nombre = data["col_nombre"]
+                col_tel = data["col_tel"]
+
+            # Leer nombres y tels actuales
+            nombres = ws.col_values(col_nombre)[1:]
+            tels = ws.col_values(col_tel)[1:] if col_tel else []
 
             updates = []
-            for i, nombre in enumerate(nombres[1:], start=2):
+            for i, nombre in enumerate(nombres):
                 if not nombre or str(nombre).strip() in ["", "nan"]:
                     continue
-                norm = normalizar(nombre)
-                id_cliente = mapa_id.get(norm, "")
-                updates.append({"range": f"D{i}", "values": [[id_cliente]]})
+                tel = tels[i] if i < len(tels) else ""
+                clave = normalizar(nombre, tel)
+                id_cliente = mapa_id.get(clave, "")
+                updates.append({
+                    "range": f"{chr(64 + col_id)}{i + 2}",
+                    "values": [[id_cliente]]
+                })
 
             for i in range(0, len(updates), 100):
                 ws.batch_update(updates[i:i+100])
 
             st.success(f"✅ Sheet {año} — {len(updates)} filas actualizadas")
+
         except Exception as e:
             st.error(f"Error en sheet {año}: {e}")
 
-    st.success(f"🎉 Listo — columna ID Cliente agregada entre Fecha y Nombre")
-    st.warning("Estructura nueva: A=Folio sistema | B=Folio interno | C=Fecha | D=ID Cliente | E=Nombre | F=Tel")
+    st.success("🎉 Listo — IDs únicos asignados por nombre + teléfono")
     st.cache_data.clear()
 
 # 🔥 FUNCIÓN AGREGAR CLIENTES (igual pero mejorada leve)
