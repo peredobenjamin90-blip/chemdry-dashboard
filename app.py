@@ -9,11 +9,11 @@ import plotly.express as px
 import os
 
 from supabase import create_client
-
 supabase = create_client(
     st.secrets["SUPABASE_URL"],
     st.secrets["SUPABASE_KEY"]
 )
+
 
 NOMBRE_APP = "CRM Dashboard"
 ICONO_APP = "🧹"
