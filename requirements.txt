@@ -6,3 +6,4 @@ openpyxl
 plotly
 streamlit-calendar
 Pillow
+supabase

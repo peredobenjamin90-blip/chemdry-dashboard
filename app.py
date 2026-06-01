@@ -8,6 +8,13 @@ import uuid
 import plotly.express as px
 import os
 
+from supabase import create_client
+
+supabase = create_client(
+    st.secrets["SUPABASE_URL"],
+    st.secrets["SUPABASE_KEY"]
+)
+
 NOMBRE_APP = "CRM Dashboard"
 ICONO_APP = "🧹"
 
@@ -319,7 +326,6 @@ def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-
         st.markdown(
             "<h1 style='text-align:center; color:#2B5BAA; font-size:2.5rem;'>CRM</h1>",
             unsafe_allow_html=True
@@ -330,11 +336,8 @@ def login():
         )
         st.markdown("<br>", unsafe_allow_html=True)
 
-        usuario_temp = st.text_input("Usuario", placeholder="Tu usuario")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
         with st.form("login_form"):
+            email = st.text_input("Email", placeholder="Tu email")
             password = st.text_input(
                 "Contraseña",
                 type="password",
@@ -346,23 +349,36 @@ def login():
             )
 
             if submitted:
-                if usuario_temp in USUARIOS and USUARIOS[usuario_temp]["password"] == password:
-                    st.session_state["usuario"] = usuario_temp
-                    st.session_state["empresa"] = USUARIOS[usuario_temp]["empresa"]
-                    st.session_state["sistema"] = USUARIOS[usuario_temp]["sistema"]
-                    st.session_state["SHEET_IDS"] = USUARIOS[usuario_temp]["sheets"]
+                try:
+                    response = supabase.auth.sign_in_with_password({
+                        "email": email,
+                        "password": password
+                    })
+                    
+                    # Obtener datos del usuario de tu tabla usuarios
+                    user_data = supabase.table("usuarios")\
+                        .select("*")\
+                        .eq("auth_id", response.user.id)\
+                        .single()\
+                        .execute()
+                    
+                    st.session_state["usuario"] = user_data.data["username"]
+                    st.session_state["empresa"] = user_data.data["empresa"]
+                    st.session_state["sistema"] = user_data.data["sistema"]
+                    st.session_state["auth_id"] = str(response.user.id)
                     st.rerun()
-                else:
-                    st.error("Usuario o contraseña incorrectos")
+                    
+                except Exception as e:
+                    st.error("Email o contraseña incorrectos")
 
 
 if "usuario" not in st.session_state:
     login()
     st.stop()
-# Cargar config dinámica del usuario
-app_config = USUARIOS[st.session_state["usuario"]].get("app", {})
-NOMBRE_APP = app_config.get("nombre", "CRM Dashboard")
 
+# Cargar config dinámica del usuario desde USUARIOS mientras migras
+app_config = USUARIOS.get(st.session_state["usuario"], {}).get("app", {})
+NOMBRE_APP = app_config.get("nombre", "CRM Dashboard")
 # ── CARGAR DATOS ──
 @st.cache_data(ttl=300)
 def cargar_datos(sheet_ids):
